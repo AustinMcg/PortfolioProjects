@@ -6,7 +6,6 @@ library(tinytex)
 library(ggrepel)
 library(kableExtra)
 library(alphavantager)
-av_api_key("XTUB6FCG610269WK")
 library(bdscale)
 library(scales)
 
