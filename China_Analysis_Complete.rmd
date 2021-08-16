@@ -2,8 +2,8 @@
 title: "China Stock Analysis"
 author: "Austin McGhee"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ### Packages
@@ -30,7 +30,8 @@ library(scales)
 library(bdscale)
 library(tinytex)
 library(kableExtra)
-av_api_key("<YOUR KEY>") #<- you will to setup free API access for this.  for AlphaVantage and Yahoo finance.
+library(alphavantager)
+av_api_key("<YOUR FREE API KEY>") #<- you will to setup free API access for this.  for AlphaVantage and Yahoo finance.
 ```
 
 ## Data Collection
