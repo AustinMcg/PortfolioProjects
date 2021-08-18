@@ -61,6 +61,21 @@ stock.list.hk <- list.hk %>%
   select(date, symbol, adjusted)
 write.csv(stock.list.hk,"stock.list.hk.csv", row.names = FALSE)
 rm(stock.list.hk)
+
+# Now take care of the tq_gets
+list.2 <- c("BABA","TCEHY","JD","PDD","NIO","MPNGY","DIDI","NTES","BILI","BIDU","WB","TCOM","LU")
+
+start.date <- as.Date("2021-01-01")
+end.date <- Sys.Date()
+
+# download stock prices from yahoo
+stock.list.2 <- list.2 %>%
+  tq_get(get  = "stock.prices",
+         from = start.date,
+         to   = end.date)
+
+write.csv(stock.list.2,"stock_data_2.csv", row.names = FALSE)
+
 ```
 
 Next we will download the AlphaVantage indicators.  First is On Balance Volume (OBV).  We can get 5 requests per minute.  So this code will download 5, assign to variables, put those 5 into a dataframe.  Then deletes the variables and waits for 62 seconds to be safe. 
@@ -463,7 +478,7 @@ rm(baba.fw, BABA, baba)
 
 Now we do the same for JD.
 
-```{r, warning=FALSE}
+```{r, echo=FALSE, warning=FALSE}
 
 ## Same thing for JD now
 # Filter and combine the data
@@ -500,7 +515,7 @@ rm(jd.fw, JD, jd)
 
 Lastly for Tencent.
 
-```{r, warning=FALSE}
+```{r, echo=FALSE, warning=FALSE}
 
 # Now the same thing for TCEHY.
 # Filter and combine
@@ -557,32 +572,10 @@ df.CCI %>%
 
 ```
 
-Next we look at the same data but change from facet_wrap to facet_grid.  Now we can view the data lined up horizontally, which makes for better observation of highs and lows for all symbols.
 
-```{r, warning=FALSE}
+Similiar chart to the last one facet_wrap but zoomed in on dates to June 2021 and after.  Switched to combination of line and point charts.
 
-# Now done with facet grid instead of wrap.  Lines them up horizontally.
-df.CCI %>%
-  filter(!symbol %in% index) %>%
-  ggplot(aes(time, CCI)) +
-  geom_area( alpha = 0.5, show.legend = FALSE) +
-  geom_hline(yintercept = 0, color="black") +
-  geom_hline(yintercept = -200, color="black", alpha = 0.8) +
-  geom_hline(yintercept = 200, color="black", alpha = 0.8) +
-  labs(title = "Commodity Channel Index US Listed Chinese Tech Stocks",
-       subtitle = "Dates from Jan 2021 to Present",
-       y= "CCI Index", x = "") +
-  scale_x_bd(business.dates=time) +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) +
-  ylim(-250,500) +
-  facet_grid(. ~ symbol)
-```
-
-Now back to the facet_wrap but zoomed in on dates to June 2021 and after.
-
-```{r, warning=FALSE}
+```{r, echo=FALSE, warning=FALSE}
 
 # Back to a grid, introduced points.  Zoomed in view.
 df.CCI %>%
@@ -619,7 +612,6 @@ mean.cci <- index.cci %>%
 # Combine into dataframe.
 stat.cci <- data.frame(median.cci, mean = mean.cci$mean)
 # Remove 
-rm(median.cci, mean.cci)
 
 # Gathered into a column for better graphing.
 stat.cci.gather<- stat.cci %>%
@@ -637,6 +629,7 @@ stat.cci.gather %>%
        x = " ") +
   scale_x_bd(business.dates=time, max.major.breaks=10, labels = date_format(format = "%b")) +
   theme(axis.title.x=element_blank()) 
+
 ```
 
 Next we isoloate the key tech companies.  Doing the same thing by getting the mean, median, and combining into a single column for plotting.
@@ -673,9 +666,10 @@ key.mean.cci %>%
   scale_x_bd(business.dates=time, labels = date_format(format = "%b %Y"), max.major.breaks=12) +
   theme(axis.title.x=element_blank()) 
 
+
 ```
 
-Now we will compare the mean of the key stocks to the mean of the China baskey of stocks.  All based on CCI calulations.  
+Now we will compare the mean of the key stocks to the mean of the China basket of stocks.  All based on CCI calulations.  
 
 ```{r, warning=FALSE}
 
@@ -727,7 +721,7 @@ merge(x = key.mean.cci, y = index.mean.cci, by = "time", all = TRUE) %>%
 
 Now we will calculate the mean of the index.  There are only 2 stocks in the index, KWEB and MCHI.
 
-```{r, warning=FALSE}
+```{r, echo=FALSE, warning=FALSE}
 
 ### GETTING THE MEAN OF INDEX ( MSCI AND KWEB )
 
@@ -746,13 +740,14 @@ idx.stat.cci <- data.frame(time = key.mean.cci$time, KEY = key.mean.cci$mean, IN
 idx.stat.cci %>%
   ggplot(aes(time, value, color = stat)) +
   geom_hline(yintercept = 0, color="black", alpha = 0.3) +
-  labs(title = "Comparing Mean CCI for Key Stocks (BABA, TCEHY) to Mean CCI of China Index ETF",
+  labs(title = "Mean CCI: Comparing Key Stocks to China Index ETF",
        subtitle = "From Jan 2020 to current date",
-       caption = "Index ETF are (MCHI, KWEB), Key Stocks are (BABA, TCEHY)",
+       caption = "Index ETF: MCHI, KWEB | Key Stocks: BABA, TCEHY",
        y = "CCI Index") +
   geom_line() +
   scale_x_bd(business.dates=time, labels = date_format(format = "%b %Y"), max.major.breaks=12) +
   theme(axis.title.x=element_blank()) 
+
 ```
 
 Now we will calculate the index spread.
@@ -766,19 +761,23 @@ data.frame(time = key.mean.cci$time, KEY = key.mean.cci$mean, INDEX = idex.mean.
   select(time, spread) %>%
   ggplot(aes(time, spread)) +
   labs(title = "CCI: Key Stocks Spread to Index ETF",
-       subtitle = "Spread of Mean CCI for Key Stocks (BABA, TCEHY) less Mean CCI of China Index",
-       caption = "China index ETF is mean of KWEB and MCHI CCI") +
+       subtitle = "Mean CCI (Spread): Key Stocks Less China Index ETF",
+       caption = "Index ETF: MCHI, KWEB | Key Stocks: BABA, TCEHY") +
   geom_hline(yintercept = 0, color="black", alpha = 0.8) +
   geom_line() +
   scale_x_bd(business.dates=time, labels = date_format(format = "%b %Y"), max.major.breaks=12) +
   theme(axis.title.x=element_blank()) 
 
+rm(index.cci, median.cci, mean.cci, stat.cci, key.cci, key.median.cci, key.stat.cci, key.mean.cci, key.stat.gather.cci, index.mean.cci, comp.mean.cci, idx.cci, idex.mean.cci, idx.stat.cci)
+
 ```
 
-## Chaikin AD Line
+### Chaikin AD Line
+The Chaikin Oscillator (CO), also called the Chaikin Indicator, is used by traders analyze the strength of a price trend based on trading volume.
 
+This oscillator is represented by charts: a divergence between this indicator and the price trend shows that most traders have less faith in the current price trend and believe that a trend reversal is in the making.  Looking at this indicator on a relative basis for the China Internet sector could be useful in spotting the potential for a reversal.  Starting with a facet_wrap.
 
-```{r, warning=FALSE}
+```{r, echo=FALSE, warning=FALSE}
 ## AD CHARTINGS
 df.AD %>%
   filter(time > chart.date) %>%
@@ -787,7 +786,6 @@ df.AD %>%
   geom_line() +
   labs(title = "Chaikin AD Line for US Listed Chinese Tech Stocks",
        subtitle = "From Jan 2021 to date of report",
-       caption = "Data is not useful for NTES.",
        y= "AD", x = "") +
   facet_wrap(. ~ symbol, scale = "free") +
   scale_x_bd(business.dates=time, labels = date_format(format = "%b"), max.major.breaks=6) +
@@ -813,11 +811,10 @@ df.AD %>%
 
 ```
 
-## Stock Price Comparison
-Comparing stock prices using Yahoo finance daily adjusted close data.
+### Stock Price Comparison
+Comparing stock prices using Yahoo finance daily adjusted close data.  First we will look at a ratio chart of MCHI (Broad China Index ETF) to SPY (S&P 500 US Index)
 
 ```{r, warning=FALSE}
-
 
 mchi <- stock.data %>%
   filter(date > "2020-01-01")%>%
@@ -827,18 +824,26 @@ spy <- stock.data %>%
   filter(date > "2020-01-01")%>%
   filter(symbol == "SPY")
 comb <- data.frame(spy, mchi)
+
 rm(spy, mchi) 
 
 comb %>%
   mutate(ratio = mchi/adjusted) %>%
   select(date, ratio) %>%
   ggplot(aes(date, ratio)) +
-  labs(title = "Ratio of MCHI to SPY",
-       subtitle = "MCHI / SPY",
-       caption = "Using daily adjusted closing price.  Moves up are overperformance relative to SPY.") +
+  labs(title = "Ratio: MCHI:SPY",
+       subtitle = "Major Underperformance of China Index ETF vs SPY.",
+       caption = "From 01/01/2020 to 08/12/2021") +
   geom_line() +
   scale_x_bd(business.dates=time, labels = date_format(format = "%b %Y"), max.major.breaks=20) +
   theme(axis.title.x=element_blank())
+
+```
+
+Lastly we will include a ratio chart of Alibaba to KWEB (KraneShares China Internet ETF).
+
+
+```{r, echo=FALSE, warning=FALSE}
 
 baba <- stock.data %>%
   filter(date > "2020-01-01")%>%
@@ -848,8 +853,8 @@ kweb <- stock.data %>%
   filter(date > "2020-01-01")%>%
   filter(symbol == "KWEB")
 comb <- data.frame(baba, kweb)
-rm(baba, kweb) 
 
+rm(baba, kweb) 
 
 comb %>%
   mutate(ratio = baba/adjusted) %>%
@@ -866,10 +871,11 @@ comb %>%
 
 ```
 
-## Relative Strength Index
+### Relative Strength Index
 This is an indexed calculation.  Can be useful to compare the RSI scores for different symbols.  First we plot TCEHY and BABA.
 
-```{r, warning=FALSE}
+```{r, echo=FALSE, warning=FALSE}
+
 #### RSI
 
 df.RSI %>%
@@ -908,12 +914,14 @@ df.RSI %>%
   geom_line() +
   scale_x_bd(business.dates=time, labels = date_format(format = "%B"), max.major.breaks=12) +
   theme(axis.title.x=element_blank())
+
+
 ```
 
 First we will do some similiar comparisons.  Here we will combine the mean RSI for the China Basket by including all stocks except the index stocks and Alibaba.  We will then assign a seperate variable and filter the dataset for only Alibaba's RSI.  Now we can compare Alibaba to the rest of the China basket, with Alibaba excluded.
 
 ```{r, warning=FALSE}
-
+rm(temp.select)
 ### Recent Edits
 
 mean.rsi <- df.RSI %>%
@@ -933,7 +941,6 @@ baba.spread.rsi <- data.frame(mean.rsi, key.rsi) %>%
   
 stat.rsi <- data.frame(mean.rsi, key.rsi) %>%
   gather(key = "stat", value = "value", -time)
-
 
 stat.rsi %>%
   ggplot(aes(time, value, color = stat)) +
@@ -965,7 +972,7 @@ ggplot(aes(time, spread)) +
 ```
 This next chunk will run the same calculation as the prior, but with Tencent instead.  We will plot the spread of Tencents RSI spread to the China basket excluding Tencent.
 
-```{r, warning=FALSE}
+```{r, echo=FALSE, warning=FALSE}
 
 mean.rsi <- df.RSI %>%
   filter(symbol != index) %>%
@@ -1016,10 +1023,11 @@ ggplot(aes(time, value, color = type)) +
   geom_hline(yintercept = 0, color = "black", alpha = 0.5) +
   scale_x_bd(business.dates=time, labels = date_format(format = "%b %Y"), max.major.breaks=12) +
   theme(axis.title.x=element_blank())
+
 ```
 Looking now at the RSI for Alibaba and Tencent from Jan 2021 and then June 2021 forward.
 
-```{r warning=FALSE}
+```{r, echo=FALSE, warning=FALSE}
 
 df.RSI %>%
   filter(time >"2021-01-01") %>%
@@ -1043,10 +1051,12 @@ df.RSI %>%
   scale_x_bd(business.dates=time, labels = date_format(format = "%B"), max.major.breaks=5) +
   theme(axis.title.x=element_blank())
 
+rm(mean.rsi, key.rsi, baba.spread.rsi, stat.rsi, tcehy.spread.rsi, stat.comp.rsi, df.RSI)
+
 ```
 
 
-### Exchange Spreads
+## Exchange Spreads
 Next we will look at the spread between the price of Alibaba on the US NYSE and the price on the Hong Kong market.  To understand the relationship between the two, use this calculation.  1x US Share of Alibaba = 8x HK Shares.  1x HK / HK-USD exchange = HK Price in US.  Comparisons are done on this equivalent basis.  For this calculation the smooth (Loess) line above zero represents a premium for HK shares of the US shares.  If the line goes below zero it represents a discount.  This spread is calculated on a daily absolute US dollar basis.
 
 ```{r warning=FALSE}
@@ -1077,6 +1087,7 @@ spread.sl.hk %>%
        caption = "Comparison with US value of HK shares.") +
   scale_x_bd(business.dates=time, labels = date_format(format = "%B"), max.major.breaks=12) +
   theme(axis.title.x=element_blank())
+
 ```
 Next we will look at the exchange spread on a daily percentage basis.
 
@@ -1097,6 +1108,7 @@ spread.sl.hk %>%
   geom_col(alpha = 0.7) +
   scale_x_bd(business.dates=time, labels = date_format(format = "%B"), max.major.breaks=12) +
   theme(axis.title.x=element_blank())
+
 ```
 Lastly we will look at this exchange spread on a cumulative US dollar basis.  Meaning the spread is carried through and added and subtracted from to form a rolling number. 
 
@@ -1114,10 +1126,12 @@ spread.sl.hk.copy %>%
   scale_x_bd(business.dates=time, labels = date_format(format = "%B"), max.major.breaks=12) +
   theme(axis.title.x=element_blank())
 
+rm(spread.sl.hk, spread.sl.hk.copy)
+
 ```
 
 
-### Density Plot Shirt
+## Density Plot Shirt
 Lastly, we will come back to the CCI data for Alibaba, Tencent, and JD.  We will review the density of CCI results for 2 time periods.  The first is Jan 1, 2020 to Jan 1, 2021 which is presented below.
 
 ```{r, warning=FALSE}
@@ -1146,7 +1160,7 @@ df.CCI %>%
 
 The second is from Jan 2, 2021 to August 12, 2021.  These plots show a clear shift in the price density for the 3 key internet companes in China.
 
-```{r, warning=FALSE}
+```{r, echo=FALSE, warning=FALSE}
 
 df.CCI %>%
   select(time, Corporation = symbol, CCI) %>%
@@ -1162,7 +1176,159 @@ df.CCI %>%
   xlim(-300,300) +
   theme(axis.title.x=element_blank())
 
+rm(df.CCI)
 ```
+
+### Custom Index 
+Calculating a custom index with pre-established weights that are setup based on current market capitalization.  weights are printed at bottom of code chunk.
+
+```{r warning=FALSE}
+
+# Slightly different Index, with custom fixed weights.
+# Note that DIDI and LU are included on this list.
+
+list <- c("BABA","TCEHY","JD","PDD","NIO","MPNGY","DIDI","NTES","BILI","BIDU","WB","TCOM","LU")
+wts <- c(0.15, 0.15, 0.10, 0.10, 0.10, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05)
+
+start.date <- as.Date("2021-01-01")
+end.date <- Sys.Date()
+
+# Get the stock price imported at beginning of project.  Yahoo data and we are using tidyquant to get the daily returns.
+
+stock_return <- stock.list.2 %>%
+  group_by(symbol) %>%
+  tq_transmute(select     = adjusted, 
+               mutate_fun = periodReturn, 
+               period     = "daily", 
+               col_rename = "Ra")
+
+# probably a better way to do this.
+#cumulative <- stock_return %>%
+#  mutate(cr = 100*(cumprod(1 + Ra)))
+
+
+basket <- stock_return %>%
+  tq_portfolio(assets_col   = symbol, 
+               returns_col  = Ra, 
+               weights      = wts, 
+               col_rename   = "investment.growth",
+               wealth.index = TRUE) %>%
+  mutate(investment.growth = investment.growth *225)
+
+
+basket <- basket %>%
+  mutate(symbol = "index") %>%
+  rename("adjusted" = investment.growth)
+
+
+basket %>%
+  ggplot(aes(x = date, y = adjusted)) +
+  geom_line(size = 1, color = palette_light()[[1]]) +
+  labs(title = "Custom Index Time Series",
+       subtitle = "Fixed Compondent Weight Portfolio with 13 Holdings",
+       x = "", y = "Index Value") +
+    scale_x_bd(business.dates=time, labels = date_format(format = "%B"), max.major.breaks=12)
+
+# Will update this into a proper table.
+print(list)
+print(wts)
+
+
+```
+
+Now we can look performance of stocks on an return basis.  Looking at comparisons of the index to Alibaba, Tencent and SPY. We use Tidyquant for the conversion from price series to daily return data.
+
+
+```{r warning=FALSE}
+
+sp.baba <- stock.list.2 %>%
+  filter(date > "2021-01-01") %>%
+  filter(symbol %in% "BABA") %>%
+  select(symbol, date, adjusted)
+
+merged <- full_join(sp.baba, basket, by = c('symbol','date', 'adjusted'))
+
+
+merged.returns <- merged %>%
+  group_by(symbol) %>%
+  tq_transmute(select     = adjusted, 
+               mutate_fun = periodReturn, 
+               period     = "daily", 
+               col_rename = "daily_return")
+
+# probably a better way to do this.
+merged.returns <- merged.returns %>%
+  mutate(cm.ret = 100*(cumprod(1 + daily_return)))
+
+merged.returns %>%
+  ggplot(aes(date, cm.ret-100, color = symbol)) +
+    labs(title = "Custom Portfolio Returns Compared to Alibaba",
+       subtitle = "Fixed Compondent Weight Portfolio with 13 Holdings and Alibaba",
+       x = "", y = "Percent Return") +
+    geom_line() +
+      scale_x_bd(business.dates=time, labels = date_format(format = "%B"), max.major.breaks=12)
+
+```
+Next we look at Tencent.
+
+```{r, echo=FALSE, warning=FALSE}
+
+sp.tencent <- stock.list.2 %>%
+  filter(date > "2021-01-01") %>%
+  filter(symbol %in% "TCEHY") %>%
+  select(symbol, date, adjusted)
+
+merged <- full_join(sp.tencent, basket, by = c('symbol','date', 'adjusted'))
+
+merged.returns <- merged %>%
+  group_by(symbol) %>%
+  tq_transmute(select     = adjusted, 
+               mutate_fun = periodReturn, 
+               period     = "daily", 
+               col_rename = "daily_return")
+
+merged.returns <- merged.returns %>%
+  mutate(cm.ret = 100*(cumprod(1 + daily_return)))
+
+merged.returns %>%
+ggplot(aes(date, cm.ret-100, color = symbol)) +
+    labs(title = "Custom Portfolio Returns Compared to Tencent",
+       subtitle = "Fixed Compondent Weight Portfolio with 13 Holdings and Tencent",
+       x = "", y = "Percent Return") +
+    geom_line()
+
+```
+Lastly we will look at the index comparison to SPY.
+
+```{r, echo=FALSE, warning=FALSE}
+
+sp.spy <- stock.data %>%
+  filter(date > "2021-01-01") %>%
+  filter(symbol %in% "SPY") %>%
+  select(symbol, date, adjusted)
+
+merged <- full_join(sp.spy, basket, by = c('symbol','date', 'adjusted'))
+
+merged.returns <- merged %>%
+  group_by(symbol) %>%
+  tq_transmute(select     = adjusted, 
+               mutate_fun = periodReturn, 
+               period     = "daily", 
+               col_rename = "daily_return")
+
+merged.returns <- merged.returns %>%
+  mutate(cm.ret = 100*(cumprod(1 + daily_return)))
+
+merged.returns %>%
+ggplot(aes(date, cm.ret-100, color = symbol)) +
+    labs(title = "Custom Portfolio Returns Compared to SPY",
+       subtitle = "Fixed Compondent Weight Portfolio with 13 Holdings and SPY",
+       x = "", y = "Percent Return") +
+    geom_line()
+
+
+```
+
 
 Thank you for taking the time to read this report.  
 
