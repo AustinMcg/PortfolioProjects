@@ -1,0 +1,1346 @@
+---
+title: "Technical Analysis of US Listed China Technology Stocks"
+author: "Austin McGhee"
+date: "August 2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+### Packages
+The following packages are used.
+
+* library(tidyverse)
+* library(tidyquant) <- financial data
+* library(lubridate) <- dates
+* library(knitr) <- rmarkdown render
+* library(ggrepel) <- chart labels
+* library(scales) <- dates
+* library(bdscale) <- dates
+* library(tinytex) <- pdf knitting
+* library(kableExtra) <- knitting
+
+
+```{r include = FALSE, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(tidyquant)
+library(lubridate)
+library(knitr)
+library(ggrepel)
+library(scales)
+library(bdscale)
+library(tinytex)
+library(kableExtra)
+library(alphavantager)
+av_api_key("<YOUR FREE API KEY>") #<- you will to setup free API access for this.  for AlphaVantage and Yahoo finance.
+```
+
+## Data Collection
+This section is included to show the process of downloading data and combining into data frames.  The data frames are all for an equal number of days.  This downloads from AlphaVantage and Yahoo finance, both free data sources.  If you setup your own free API access to each, then you can use this code in its entirety.  The system delays in this download are a meant to automate the waiting time around the 60 second pause per 5 data requests from AlphaVantage.  It will take a few minutes to run.  We will be downloading, combining into a single dataframe per stock basket and per indicator.  Then we will export to csv which we will input for the analysis.  
+
+```{r, warning=FALSE}
+
+# Important lists
+date <- as.Date("2020-01-01") # pulling data from this date
+list <- c("SPY", "BABA", "JD", "TCEHY","KWEB", "MCHI","PDD","BIDU","NIO","NTES","BILI","TCOM","MPNGY","WB","TME")
+list.hk <- c("BABA", "9988.HK", "HKD=X") 
+
+# Yahoo prices downloaded through tidyquant
+stock.list <- list %>%
+  tq_get(get  = "stock.prices",
+         from = "2018-01-01",
+         to   = "2022-12-31") %>%
+  select(date, symbol, adjusted)
+write.csv(stock.list,"stock.list.csv", row.names = FALSE)
+rm(stock.list)
+
+# Hong Kong prices downloaded through tidyquant
+stock.list.hk <- list.hk %>%
+  tq_get(get  = "stock.prices",
+         from = "2018-01-01",
+         to   = "2022-12-31") %>%
+  select(date, symbol, adjusted)
+write.csv(stock.list.hk,"stock.list.hk.csv", row.names = FALSE)
+rm(stock.list.hk)
+
+# Now take care of the tq_gets
+list.2 <- c("BABA","TCEHY","JD","PDD","NIO","MPNGY","DIDI","NTES","BILI","BIDU","WB","TCOM","LU")
+
+start.date <- as.Date("2021-01-01")
+end.date <- Sys.Date()
+
+# download stock prices from yahoo
+stock.list.2 <- list.2 %>%
+  tq_get(get  = "stock.prices",
+         from = start.date,
+         to   = end.date)
+
+write.csv(stock.list.2,"stock_data_2.csv", row.names = FALSE)
+
+```
+
+Next we will download the AlphaVantage indicators.  First is On Balance Volume (OBV).  We can get 5 requests per minute.  So this code will download 5, assign to variables, put those 5 into a dataframe.  Then deletes the variables and waits for 62 seconds to be safe. 
+
+```{r, warning=FALSE}
+
+# Download 5x AlphaVantage indicators
+#
+jd <- av_get("JD", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+baba <- av_get("BABA", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+tcehy <- av_get("TCEHY", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+kweb <- av_get("KWEB", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+mchi <- av_get("MCHI", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+
+df1 <- data.frame(jd, baba, tcehy, kweb, mchi) %>%
+  select(time, jd = obv, baba = obv.1, tcehy = obv.2, kweb = obv.3, mchi = obv.4)
+rm(jd, baba, tcehy, kweb, mchi)
+```
+
+After waiting the 62 seconds, we will do the same thing for the next 5.  All the same OBV indicator, we are going to do this another couple times.  We will make another dataset.
+
+```{r, warning=FALSE}
+
+Sys.sleep(62)
+
+pdd <- av_get("PDD", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+bidu <- av_get("BIDU", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+nio <- av_get("NIO", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+ntes <- av_get("NTES", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+bili <- av_get("BILI", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+
+
+df2 <- data.frame(pdd, bidu, nio, ntes, bili) %>%
+  select(pdd = obv, bidu = obv.1, nio = obv.2, ntes = obv.3, bili = obv.4)
+rm(pdd, bidu, nio, ntes, bili)
+```
+
+Same thing again.
+
+```{r warning=FALSE}
+
+Sys.sleep(62)
+
+tcom <- av_get("TCOM", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+mpngy <- av_get("MPNGF", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+wb <- av_get("WB", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+tme <- av_get("TME", av_fun = "OBV", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+
+### PUT IT ALL TOGETHER IN A DATAFRAME
+df3 <- data.frame(tcom, mpngy, wb, tme) %>%
+  select(tcom = obv, mpngy = obv.1, wb = obv.2, tme = obv.3)
+rm(tcom, wb, mpngy, tme)
+```
+
+Now we will combine the dataframes we have made and write the files to csv format.  We have fished 1 indicator now.  We will do a few more.  The process is the exact same, the list is the same, the number of trading days is the same.  
+
+```{r warning=FALSE}
+
+df.OBV <- data.frame(df1, df2, df3) %>%
+  gather(key = "symbol", value = "OBV", -time)
+
+rm(df1, df2, df3)
+
+
+write.csv(df.OBV,"df.OBV.csv", row.names = FALSE)
+```
+
+Now for CCI
+
+```{r warning=FALSE}
+## NOW CCI
+Sys.sleep(61)
+
+jd <- av_get("JD", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+baba <- av_get("BABA", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+tcehy <- av_get("TCEHY", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+kweb <- av_get("KWEB", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+mchi <- av_get("MCHI", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+
+df1 <- data.frame(jd, baba, tcehy, kweb, mchi) %>%
+  select(time, jd = cci, baba = cci.1, tcehy = cci.2, kweb = cci.3, mchi = cci.4)
+
+Sys.sleep(62)
+
+pdd <- av_get("PDD", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+bidu <- av_get("BIDU", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+nio <- av_get("NIO", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+ntes <- av_get("NTES", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+bili <- av_get("BILI", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+
+df2 <- data.frame(pdd, bidu, nio, ntes, bili) %>%
+  select(pdd = cci, bidu = cci.1, nio = cci.2, ntes = cci.3, bili = cci.4)
+
+Sys.sleep(62)
+
+tcom <- av_get("TCOM", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+mpngy <- av_get("MPNGF", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+wb <- av_get("WB", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+tme <- av_get("TME", av_fun = "CCI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+
+### PUT IT ALL TOGETHER IN A DATAFRAME
+df3 <- data.frame(tcom, mpngy,wb, tme) %>%
+  select(tcom = cci, mpngy = cci.1, wb = cci.2, tme = cci.3)
+
+rm(tcom, wb, mpngy, tme)
+rm(jd, baba, tcehy, kweb, mchi)
+rm(pdd, bidu, nio, ntes, bili)
+
+df.CCI <- data.frame(df1, df2, df3) %>%
+  gather(key = "symbol", value = "CCI", -time)
+
+rm(df1, df2, df3)
+
+write.csv(df.CCI,"df.CCI.csv", row.names = FALSE)
+```
+
+CCI is written to csv.  Now on to Chaikin AD.
+
+```{r warning=FALSE}
+
+####### AD LINE
+
+Sys.sleep(61)
+
+jd <- av_get("JD", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+baba <- av_get("BABA", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+tcehy <- av_get("TCEHY", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+kweb <- av_get("KWEB", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+mchi <- av_get("MCHI", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+
+df1 <- data.frame(jd, baba, tcehy, kweb, mchi) %>%
+  select(time, jd = chaikin_a_d, baba = chaikin_a_d.1, tcehy = chaikin_a_d.2, kweb = chaikin_a_d.3, mchi = chaikin_a_d.4)
+
+Sys.sleep(62)
+
+pdd <- av_get("PDD", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+bidu <- av_get("BIDU", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+nio <- av_get("NIO", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+ntes <- av_get("NTES", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+bili <- av_get("BILI", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+
+df2 <- data.frame(pdd, bidu, nio, ntes, bili) %>%
+  select(pdd = chaikin_a_d, bidu = chaikin_a_d.1, nio = chaikin_a_d.2, ntes = chaikin_a_d.3, bili = chaikin_a_d.4)
+
+Sys.sleep(62)
+
+tcom <- av_get("TCOM", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+mpngy <- av_get("MPNGF", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+wb <- av_get("WB", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+tme <- av_get("TME", av_fun = "AD", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+
+### PUT IT ALL TOGETHER IN A DATAFRAME
+df3 <- data.frame(tcom, mpngy,wb, tme) %>%
+  select(tcom = chaikin_a_d, mpngy = chaikin_a_d.1, wb = chaikin_a_d.2, tme = chaikin_a_d.3)
+
+rm(tcom, wb, mpngy, tme)
+rm(jd, baba, tcehy, kweb, mchi)
+rm(pdd, bidu, nio, ntes, bili)
+
+df.AD <- data.frame(df1, df2, df3) %>%
+  gather(key = "symbol", value = "AD", -time)
+
+rm(df1, df2, df3)
+
+write.csv(df.AD,"df.AD.csv", row.names = FALSE)
+
+rm(df.CCI, df.OBV, df.AD)
+
+```
+
+Lastly is RSI.  We will then use this data for the analysis, which is the remainder of this project.
+
+```{r, warning=FALSE}
+
+## NOW CCI
+Sys.sleep(60)
+
+jd <- av_get("JD", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+baba <- av_get("BABA", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+tcehy <- av_get("TCEHY", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+kweb <- av_get("KWEB", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+mchi <- av_get("MCHI", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+
+df1 <- data.frame(jd, baba, tcehy, kweb, mchi) %>%
+  select(time, jd = rsi, baba = rsi.1, tcehy = rsi.2, kweb = rsi.3, mchi = rsi.4)
+
+Sys.sleep(62)
+
+pdd <- av_get("PDD", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+bidu <- av_get("BIDU", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+nio <- av_get("NIO", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+ntes <- av_get("NTES", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+bili <- av_get("BILI", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+
+df2 <- data.frame(pdd, bidu, nio, ntes, bili) %>%
+  select(pdd = rsi, bidu = rsi.1, nio = rsi.2, ntes = rsi.3, bili = rsi.4)
+
+Sys.sleep(62)
+
+tcom <- av_get("TCOM", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+mpngy <- av_get("MPNGF", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+wb <- av_get("WB", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+tme <- av_get("TME", av_fun = "RSI", interval = "daily", time_period = 200, series_type = "close") %>%
+  filter(time > date)
+
+### PUT IT ALL TOGETHER IN A DATAFRAME
+df3 <- data.frame(tcom, mpngy,wb, tme) %>%
+  select(tcom = rsi, mpngy = rsi.1, wb = rsi.2, tme = rsi.3)
+
+rm(tcom, wb, mpngy, tme)
+rm(jd, baba, tcehy, kweb, mchi)
+rm(pdd, bidu, nio, ntes, bili)
+
+df.RSI <- data.frame(df1, df2, df3) %>%
+  gather(key = "symbol", value = "RSI", -time)
+
+rm(df1, df2, df3)
+
+write.csv(df.RSI,"df.RSI.csv", row.names = FALSE)
+
+
+```
+
+## Data Import
+The csv files used to import for this analysis were generated used AlphaVantage and Yahoo finance data.  The data is downloaded using a seperate R script, then the dataframes are exported to csv files which are loaded into this script.
+
+
+```{r, warning = FALSE, message = FALSE}
+
+# Set key symbol groups and dates.
+index <- c("kweb", "mchi")
+key.tech <- c("tcehy", "baba", "jd")
+exclude.bidu.ntes <- c("bidu", "ntes", "mpngy")
+chart.date <- as.Date("2021-01-01") # charting this date
+
+## Load in the On Balance Volume Data
+df.OBV <- read_csv("df.OBV.csv")
+
+## Load in the Commodity Channel index data
+df.CCI <- read_csv("df.CCI.csv")
+
+## Load in the Chaikin AD data
+df.AD <- read_csv("df.AD.csv")
+
+## Load in the Relative Strength index data
+df.RSI <- read_csv("df.RSI.csv")
+
+### Stock Data from Yahoo
+stock.data <- read_csv("stock.list.csv")
+
+##HK Hong Kong Stock Data from Yahoo
+stock.data.hk <- read_csv("stock.list.hk.csv")
+
+# Set a dates column that from the data to use in graphs later.
+time <- stock.data$date %>%
+  sort(descreasing = TRUE)
+
+```
+
+## Price Data
+### Tidyquant Analytics
+Using the Tidyquant package to look at stock prices and returns for the China basket.
+
+```{r warning=FALSE}
+sl3 <- stock.data %>%
+  group_by(symbol)
+
+eq.only <- c( "SPY", "MCHI", "KWEB")
+temp.list <- c("BABA", "TCEHY")
+
+sl3 %>%
+  filter(symbol %in% eq.only) %>%
+  tq_transmute(adjusted, 
+               periodReturn, 
+               period = "daily", 
+               type = "log", 
+               col_rename = "returns") %>%
+  mutate(index = 1 * cumprod(1 + returns)) %>%
+  ggplot(aes(x = date, y = index, color = symbol)) +
+    geom_vline(xintercept = as.Date("2021-02-17"), color = "red") +
+    geom_line(size = 0.8) +
+  labs(title = "Index Returns for S&P 500, China Broad Market, and China Internet Sector",
+       subtitle = "From 01/01/2018 to 17/08/2021",
+       caption = "Red line indicating max price of China Internet ETF KWEB (Top of market).",
+       x = "Date", y = "Return") +
+    theme_tq() +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%Y"), max.major.breaks=12) 
+
+sl3 %>%
+  filter(symbol %in% temp.list) %>%
+  tq_transmute(adjusted, 
+               periodReturn, 
+               period = "daily", 
+               type = "log", 
+               col_rename = "returns") %>%
+  mutate(index = 1 * cumprod(1 + returns)) %>%
+  ggplot(aes(x = date, y = index, color = symbol)) +
+    geom_hline(yintercept = 1, alpha = 0.2) +
+    geom_vline(xintercept = as.Date("2021-02-17"), color = "red", size = 1) +
+    geom_line(size = 0.8) +
+  labs(title = "Returns for Alibaba and Tencent",
+       subtitle = "From 01/01/2018 to 17/08/2021",
+       x = "Date", y = "Return") +
+  theme_tq() +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%Y"), max.major.breaks=12) 
+
+```
+
+Looking at the overall decline of stocks in the China basket.  Most stocks participated in the decline.
+
+```{r warning=FALSE}
+
+eq.only <- c("SPY", "KWEB", "MCHI")
+
+sl3 %>%
+  filter(date > "2021-01-01") %>%
+  filter(!symbol %in% eq.only) %>%
+  tq_transmute(adjusted, 
+               periodReturn, 
+               period = "daily", 
+               type = "log", 
+               col_rename = "returns") %>%
+  mutate(index = 1 * cumprod(1 + returns)) %>%
+  ggplot(aes(x = date, y = index, color = symbol)) +
+    geom_hline(yintercept = 1, alpha = 0.5) +
+    geom_vline(xintercept = as.Date("2021-02-17"), color = "red", size = 1) +
+    geom_line(size = 1) +
+  labs(title = "Relatively Sychnronous Decline from Jan 2021",
+       subtitle = "From 01/01/2021 to 17/08/2021",
+       caption = "Red line indicating max price of China Internet ETF KWEB (Top of market).") +
+  theme_tq() + 
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b"), max.major.breaks=12) 
+
+```
+
+Next we look at the full 6 selected stocks (Tencent, Alibaba, JD, Meituan, Pinduoduo, Nio).  These charts measure the stock return over time.
+
+```{r warning = FALSE}
+top5 <- c("TCEHY", "BABA", "JD", "MPNGY", "PDD", "NIO")
+
+sl3 %>%
+  filter(symbol %in% top5) %>%
+  tq_transmute(adjusted, 
+               periodReturn, 
+               period = "daily", 
+               type = "log", 
+               col_rename = "returns") %>%
+  mutate(index = 1 * cumprod(1 + returns)) %>%
+  ggplot(aes(x = date, y = index)) +
+  geom_hline(yintercept = 1, alpha = 0.5) +
+  geom_line(size = 0.1) +
+  geom_vline(xintercept = as.Date("2021-02-17"), color = "red", size = 1) +
+  geom_area(alpha = 0.3) +
+  labs(title = "Returns Time Period, Selected 6 Companies with line denoting Sector Peak",
+       subtitle = "From 01/01/2021 to 17/08/2021  TCEHY, BABA, JD, NIO, PDD, MPNGY",
+       caption = "Red line indicating max price of China Internet ETF KWEB (Top of market).") +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%Y"), max.major.breaks=6) +
+  theme_tq() +
+  facet_wrap(.~ symbol, scales = "free") 
+
+
+sl3 %>%
+  filter(date > "2021-01-01") %>%
+  filter(symbol %in% top5) %>%
+  tq_transmute(adjusted, 
+               periodReturn, 
+               period = "daily", 
+               type = "log", 
+               col_rename = "returns") %>%
+  mutate(index = 1 * cumprod(1 + returns)) %>%
+  ggplot(aes(x = date, y = index)) +
+    geom_hline(yintercept = 1, alpha = 0.5) +
+  geom_line(size = 0.1) +
+    geom_vline(xintercept = as.Date("2021-02-17"), color = "red", size = 1) +
+    geom_area(alpha = 0.3) +
+  labs(title = "Same Time Period, Full Basket View including Sector Peak",
+       subtitle = "From 01/01/2021 to 17/08/2021",
+       caption = "Red line indicating max price of China Internet ETF KWEB (Top of market).",
+       y = "Return") +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b"), max.major.breaks=6) +
+    theme_tq() +
+    facet_wrap(.~ symbol, scales = "free") 
+
+
+```
+
+### Pairs Analysis
+Calculating Return Coefficient and stock return for Alibaba and Tencent.
+
+```{r include=FALSE, warning=FALSE}
+### PAIRS ANALYSIS
+# Alibaba and Tencent pairs
+temp.list <- c("BABA", "TCEHY")
+
+regr_fun <- function(data) {
+    coef(lm(BABA ~ TCEHY, data = timetk::tk_tbl(data, silent = TRUE)))
+}
+
+stock_pairs <- sl3 %>%
+  filter(symbol %in% temp.list) %>%
+  tq_transmute(select     = adjusted,
+               mutate_fun = periodReturn,
+               period     = "daily",
+               type       = "log",
+               col_rename = "returns") %>%
+  spread(key = symbol, value = returns)
+
+```
+
+```{r warning=FALSE}
+
+# Plotting the relationship of price returns
+stock_pairs %>%
+  ggplot(aes(x = BABA, y = TCEHY)) +
+  geom_point(color = palette_light()[[1]], alpha = 0.5) +
+  geom_smooth(method = "lm") +
+  labs(title = "Visualizing Returns Relationship of Stock Pairs") +
+  theme_tq()
+
+stock_pairs <- stock_pairs %>%
+  tq_mutate(mutate_fun = rollapply,
+            width      = 90,
+            FUN        = regr_fun,
+            by.column  = FALSE,
+            col_rename = c("coef.0", "coef.1"))
+
+stock_pairs %>%
+  ggplot(aes(x = date, y = coef.1)) +
+  geom_line(size = 1, color = palette_light()[[1]]) +
+  geom_hline(yintercept = 0.8134, size = 1, color = palette_light()[[2]]) +
+  labs(title = "BABA ~ TCEHY: Visualizing Rolling Regression Coefficient", x = "") +
+  theme_tq()
+
+```
+
+### MACD 
+Now we will plot MACD for select stocks.
+
+```{r, warning=FALSE}
+
+#### Now plotting macd
+main <- c("BABA", "TCEHY")
+
+sl3_macd <- sl3 %>%
+  filter(symbol %in% main) %>%
+  group_by(symbol) %>%
+  tq_mutate(select     = adjusted, 
+            mutate_fun = MACD, 
+            nFast      = 12, 
+            nSlow      = 26, 
+            nSig       = 9, 
+            maType     = SMA) %>%
+  mutate(diff = macd - signal)
+
+main <- c("BABA", "TCEHY", "JD", "MPNGY")
+
+sl3_macd %>%
+  filter(symbol %in% main) %>%
+  filter(date > as_date("2021-05-01")) %>%
+  ggplot(aes(x = date)) + 
+  geom_hline(yintercept = 0, color = palette_light()[[1]]) +
+  geom_line(aes(y = macd, col = symbol)) +
+  geom_line(aes(y = signal), color = "blue", linetype = 2) +
+  geom_bar(aes(y = diff), stat = "identity", alpha = 0.5, color = palette_light()[[1]]) +
+  facet_wrap(~ symbol, ncol = 2, scale = "free") +
+  labs(title = "BABA, TCEHY, JD: Moving Average Convergence Divergence",
+       y = "MACD", x = "", color = "") +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b"), max.major.breaks=12) +
+  theme_tq() +
+  scale_color_tq()
+
+```
+
+## Indicators
+### On Balance Volume
+Abbreviated OBV, running calculations for the China Group.  Also individually for Alibaba, Tencent, and JD.  We are excluding bidu and ntes by applying the exclude.bidu.ntes list we setup in the step above.
+
+```{r, warning = FALSE, message = FALSE}
+
+### Charting the On Balance Volume
+# Facet wrap for all symbols
+df.OBV %>%
+  filter(time > chart.date) %>%
+  filter(!symbol %in% index) %>%
+  filter(!symbol %in% exclude.bidu.ntes) %>%
+  ggplot(aes(time, OBV)) +
+  geom_line() +
+  geom_hline(yintercept = 0, alpha = 0.5, color = "black") +
+  labs(title = "On Balance Volume (OBV) for US Listed Chinese Tech Stocks",
+       subtitle = "From Jan 2021 to Date of Report",
+       caption = "BIDU, NTES, and MPNGY excluded. Dates in Day/Month format",
+       y= "OBV", x = "") +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%B"),max.major.breaks=6) +
+  theme(axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.title.x=element_blank()) +
+  facet_wrap(. ~ symbol, scale = "free")
+
+```
+
+Now combining the Alibaba adjusted daily close data with the OBV data to compare in a graph.
+
+```{r, echo=FALSE, warning=FALSE}
+
+# Next 2 blocks BABA and baba are stock price and OBV data.  The 3rd block combines them into a dataframe
+BABA <- stock.data %>%
+  filter(date > chart.date) %>%
+  filter(symbol %in% "BABA") %>%
+  select(time = date, adjusted)
+
+baba <- df.OBV %>%
+  filter(time > chart.date) %>%
+  filter(symbol %in% "baba") %>%
+  select(time, OBV)
+
+baba.fw <- merge(x = BABA, y = baba, by = "time", all = TRUE) %>%
+  select(time, Adjusted = adjusted, "On Balance Volume" = OBV) %>%
+  gather(key = "type", value = "value", -time)
+
+# Now filter the dataframe by date and plot the price and OBV together.  On on top of another.  You look for divergences in the price and OBV for it's use as an indicator.
+baba.fw %>%
+  filter(time > "2021-06-01") %>%
+  ggplot(aes(time, value)) +
+  geom_line() +
+  labs(title = "Alibaba Adjusted Daily Price Compared to On Balance Volume",
+       caption = "Look for divergence between OBV and Price.",
+       subtitle = "From June 2021 to Present") +
+  facet_wrap( ~ type,nrow = 2, 
+              scales = "free") +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%d-%b"), max.major.breaks=12)
+
+rm(baba.fw, BABA, baba)
+
+
+## Same thing for JD now
+# Filter and combine the data
+JD <- stock.data %>%
+  filter(date > chart.date) %>%
+  filter(symbol %in% "JD") %>%
+  select(time = date, adjusted)
+
+jd <- df.OBV %>%
+  filter(time > chart.date) %>%
+  filter(symbol %in% "jd") %>%
+  select(time, OBV)
+
+jd.fw <- merge(x = JD, y = jd, by = "time", all = TRUE) %>%
+  select(time, Adjusted = adjusted, "On Balance Volume" = OBV) %>%
+  gather(key = "type", value = "value", -time)
+
+# And Chart it
+jd.fw %>%
+  filter(time > "2021-06-01") %>%
+  ggplot(aes(time, value)) +
+  geom_line() +
+  labs(title = "JD Adjusted Daily Closing Price Compared to On Balance Volume",
+       caption = "Look for divergence between OBV and Price.",
+       subtitle = "From June 2021 to Present") +
+  facet_wrap( ~ type,nrow = 2, 
+              scales = "free") +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%d-%b"), max.major.breaks=12)
+
+# Remove it
+rm(jd.fw, JD, jd)
+
+# Now the same thing for TCEHY.
+# Filter and combine
+TCEHY <- stock.data %>%
+  filter(date > chart.date) %>%
+  filter(symbol %in% "TCEHY") %>%
+  select(time = date, adjusted)
+
+tcehy <- df.OBV %>%
+  filter(time > chart.date) %>%
+  filter(symbol %in% "tcehy") %>%
+  select(time, OBV)
+
+tcehy.fw <- merge(x = TCEHY, y = tcehy, by = "time", all = TRUE) %>%
+  select(time, Adjusted = adjusted, "On Balance Volume" = OBV) %>%
+  gather(key = "type", value = "value", -time)
+
+# Same Chart
+tcehy.fw %>%
+  filter(time > "2021-06-01") %>%
+  ggplot(aes(time, value)) +
+  geom_line() +
+  labs(title = "Tencent Adjusted Daily Closing Price Compared to On Balance Volume",
+       caption = "Look for divergence between OBV and Price.",
+       subtitle = "From June 2021 to Present") +
+  facet_wrap( ~ type,nrow = 2, 
+              scales = "free") +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%d-%b"), max.major.breaks=12)
+
+# Remove
+rm(tcehy.fw, TCEHY, tcehy)
+
+```
+
+### Commodity Channel Index
+The CCI is a useful guage that is indexed.  Calculating the mean and median CSI of a group of stocks can be an accurate indicator to the groups relative strength or weakness.  We remove the index stock and do several calculations to come up with unique sets to use for performance analysis.
+
+```{r}
+
+## Commodity Channel Index (CCI)
+# Facet wrap to show a grid of symbols using area charts.
+df.CCI %>%
+  filter(!symbol %in% index) %>%
+  ggplot(aes(time, CCI)) +
+  geom_area( alpha = 0.5, show.legend = FALSE) +
+  geom_hline(yintercept = 0, color="black") +
+  geom_hline(yintercept = -200, color="black", alpha = 0.8) +
+  geom_hline(yintercept = 200, color="black", alpha = 0.8) +
+  labs(title = "Commodity Channel Index US Listed Chinese Tech Stocks",
+       subtitle = "Dates from Jan 2021 to Present",
+       y= "CCI Index", x = "Date") +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%Y"), max.major.breaks=4) +
+  theme(axis.title.x=element_blank()) +
+  facet_wrap(. ~ symbol)
+
+```
+
+
+Similiar chart to the last one facet_wrap but zoomed in on dates to June 2021 and after.  Switched to combination of line and point charts.
+
+```{r, echo=FALSE, warning=FALSE}
+
+# Back to a grid, introduced points.  Zoomed in view.
+df.CCI %>%
+  filter(time > "2021-06-01") %>%
+  filter(!symbol %in% index) %>%
+  ggplot(aes(time, CCI)) +
+  geom_line( alpha = 0.5, show.legend = FALSE) +
+  geom_hline(yintercept = 0, color = "black", alpha = 0.5) +
+  geom_point(size = 0.1)+
+  labs(title = "Commodity Channel Index US Listed Chinese Tech Stocks",
+       subtitle = "A Closer Look, Dates from June 2021 to Present",
+       y= "CCI", x = "") +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b")) +
+  theme(axis.title.x=element_blank()) +
+  facet_wrap(. ~ symbol)
+
+```
+
+Now we use filters and our preset variable lists to create new dataframes for an index, mean, and median.  We comebine them into a single dataframe for plotting.
+
+```{r, echo=FALSE, warning=FALSE}
+
+# New dataframe, filtering out the index ETF.
+index.cci <- df.CCI %>%
+  filter(symbol != index) 
+# Create a CCI number that is a median of the CCI for the non index stocks.
+median.cci <- index.cci %>%  
+  group_by(time) %>%
+  summarise(median = median(CCI, na.rm = TRUE))
+# Same thing for mean
+mean.cci <- index.cci %>%  
+  group_by(time) %>%
+  summarise(mean = mean(CCI, na.rm = TRUE))
+# Combine into dataframe.
+stat.cci <- data.frame(median.cci, mean = mean.cci$mean)
+# Remove 
+
+# Gathered into a column for better graphing.
+stat.cci.gather<- stat.cci %>%
+  gather(key = "stat", value = "value", -time)
+
+```
+
+Next we isoloate the key tech companies.  Doing the same thing by getting the mean, median, and combining into a single column for plotting.
+
+```{r, echo=FALSE, warning=FALSE}
+## Next part is isolating the key tech companies
+key.cci <- df.CCI %>%
+  filter(symbol %in% key.tech)
+# Calculating median
+key.median.cci <- key.cci %>%  
+  group_by(time) %>%
+  summarise(median = median(CCI, na.rm = TRUE))
+# Calculating median
+key.mean.cci <- key.cci %>%  
+  group_by(time) %>%
+  summarise(mean = mean(CCI, na.rm = TRUE)) 
+# Combining
+key.stat.cci <- data.frame(key.median.cci, mean = key.mean.cci$mean)
+# Combining and merging into 1 column for charting.
+key.stat.gather.cci <- key.stat.cci %>%
+  gather(key = "stat", value = "value", -time)
+
+# Needs work.
+key.mean.cci %>%
+  filter(time > "2020-01-01") %>%
+  ggplot(aes(time, mean)) +
+  geom_line() +
+  geom_hline(yintercept = 0, color = "black", alpha = 0.5) +
+  labs(title = "CCI Mean for Alibaba and Tencent",
+       subtitle = "From Jan 2020 to current date",
+       caption = "(Alibaba CCI + Tencent CCI) / 2",
+       y= "CCI",
+       x = "") +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b %Y"), max.major.breaks=12) +
+  theme(axis.title.x=element_blank()) 
+
+
+```
+
+
+
+Now we will calculate the mean of the index.  There are only 2 stocks in the index, KWEB and MCHI.
+
+```{r, echo=FALSE, warning=FALSE}
+
+### GETTING THE MEAN OF INDEX ( MSCI AND KWEB )
+
+idx.cci <- df.CCI %>%
+  filter(symbol %in% index)
+
+idex.mean.cci <- idx.cci %>%  
+  group_by(time) %>%
+  summarise(mean = mean(CCI, na.rm = TRUE))
+
+idx.stat.cci <- data.frame(time = key.mean.cci$time, KEY = key.mean.cci$mean, INDEX = idex.mean.cci$mean) %>%
+  gather(key = "stat", value = "value", -time)
+
+# PLOT
+
+idx.stat.cci %>%
+  ggplot(aes(time, value, color = stat)) +
+  geom_hline(yintercept = 0, color="black", alpha = 0.3) +
+  labs(title = "Mean CCI: Comparing Key Stocks to China Index ETF",
+       subtitle = "From Jan 2020 to current date",
+       caption = "Index ETF: MCHI, KWEB | Key Stocks: BABA, TCEHY",
+       y = "CCI Index") +
+  geom_line() +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b %Y"), max.major.breaks=12) +
+  theme(axis.title.x=element_blank()) 
+
+```
+
+Now we will calculate the index spread.
+
+```{r, warning=FALSE}
+
+## NOW CALCULATING THE INDEX SPREAD
+data.frame(time = key.mean.cci$time, KEY = key.mean.cci$mean, INDEX = idex.mean.cci$mean) %>%  
+  select(time, KEY, INDEX) %>%
+  mutate(spread = KEY - INDEX) %>%
+  select(time, spread) %>%
+  ggplot(aes(time, spread)) +
+  labs(title = "CCI: Key Stocks Spread to Index ETF",
+       subtitle = "Mean CCI (Spread): Key Stocks Less China Index ETF",
+       caption = "Index ETF: MCHI, KWEB | Key Stocks: BABA, TCEHY") +
+  geom_hline(yintercept = 0, color="black", alpha = 0.8) +
+  geom_line() +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b %Y"), max.major.breaks=12) +
+  theme(axis.title.x=element_blank()) 
+
+rm(index.cci, median.cci, mean.cci, stat.cci, key.cci, key.median.cci, key.stat.cci, key.mean.cci, key.stat.gather.cci, index.mean.cci, comp.mean.cci, idx.cci, idex.mean.cci, idx.stat.cci)
+
+```
+
+### Chaikin AD Line
+The Chaikin Oscillator (CO), also called the Chaikin Indicator, is used by traders analyze the strength of a price trend based on trading volume.
+
+This oscillator is represented by charts: a divergence between this indicator and the price trend shows that most traders have less faith in the current price trend and believe that a trend reversal is in the making.  Looking at this indicator on a relative basis for the China Internet sector could be useful in spotting the potential for a reversal.  Starting with a facet_wrap.
+
+```{r, echo=FALSE, warning=FALSE}
+## AD CHARTINGS
+df.AD %>%
+  filter(time > chart.date) %>%
+  filter(!symbol %in% index) %>%
+  ggplot(aes(time, AD)) +
+  geom_line() +
+  labs(title = "Chaikin AD Line for US Listed Chinese Tech Stocks",
+       subtitle = "From Jan 2021 to date of report",
+       y= "AD", x = "") +
+  facet_wrap(. ~ symbol, scale = "free") +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b"), max.major.breaks=6) +
+  theme(axis.title.y=element_blank(),
+      axis.text.y=element_blank(),
+      axis.ticks.y=element_blank(),
+      axis.title.x=element_blank())
+
+df.AD %>%
+  filter(time > "2021-05-01") %>%
+  filter(symbol %in% key.tech) %>%
+  ggplot(aes(time, AD)) +
+  geom_line() +
+  labs(title = "Chaikin AD Line for Key US Listed Chinese Tech",
+       subtitle = "From May 2021 to Date of Report",
+       y= "AD", x = "") +
+  facet_wrap(. ~ symbol, scale = "free") +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b"), max.major.breaks=6) +
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.title.x=element_blank())
+
+```
+
+### Sector Ratio
+Comparing stock prices using Yahoo finance daily adjusted close data.  First we will look at a ratio chart of MCHI (Broad China Index ETF) to SPY (S&P 500 US Index)
+
+```{r, warning=FALSE}
+
+mchi <- stock.data %>%
+  filter(date > "2020-01-01")%>%
+  filter(symbol == "MCHI") %>%
+  select(mchi = adjusted)
+spy <- stock.data %>%
+  filter(date > "2020-01-01")%>%
+  filter(symbol == "SPY")
+comb <- data.frame(spy, mchi)
+
+rm(spy, mchi) 
+
+comb %>%
+  mutate(ratio = mchi/adjusted) %>%
+  select(date, ratio) %>%
+  ggplot(aes(date, ratio)) +
+  labs(title = "Ratio: MCHI:SPY",
+       subtitle = "Major Underperformance of China Index ETF vs SPY.",
+       caption = "From 01/01/2020 to 08/12/2021") +
+  geom_line() +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b %Y"), max.major.breaks=20) +
+  theme(axis.title.x=element_blank())
+
+```
+
+
+### Relative Strength Index
+This is an indexed calculation.  Can be useful to compare the RSI scores for different symbols.  
+
+```{r, echo=FALSE, warning=FALSE}
+
+#### RSI
+main <- c("baba", "tcehy")
+
+df.RSI %>%
+  filter(time > "2021-01-01") %>%
+  filter(symbol %in% main) %>%
+  ggplot(aes(time, RSI, color = symbol)) +
+  labs(title = "Relative Strength Index for Tencent",
+       subtitle = "From Jan 2021 to date of report") +
+  geom_line() +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%B"), max.major.breaks=12)
+
+
+```
+
+
+First we will do some similiar comparisons.  Here we will combine the mean RSI for the China Basket by including all stocks except the index stocks and Alibaba.  We will then assign a seperate variable and filter the dataset for only Alibaba's RSI.  Now we can compare Alibaba to the rest of the China basket, with Alibaba excluded.
+
+```{r, warning=FALSE}
+
+rm(temp.select)
+### Recent Edits
+
+mean.rsi <- df.RSI %>%
+  filter(symbol != index) %>%
+  filter(!symbol %in% "BABA") %>%
+  group_by(time) %>%
+  summarise(mean = mean(RSI, na.rm = TRUE))
+key.rsi <- df.RSI %>%
+  filter(symbol %in% "baba") %>%
+  group_by(time) %>%
+  summarise(mean = mean(RSI, na.rm = TRUE)) %>%
+  select(keymean = mean)
+
+baba.spread.rsi <- data.frame(mean.rsi, key.rsi) %>%
+  mutate(spread = keymean - mean) %>%
+  select(time, BABA.Spread = spread) 
+  
+stat.rsi <- data.frame(mean.rsi, key.rsi) %>%
+  gather(key = "stat", value = "value", -time)
+
+```
+
+```{r, warning=FALSE}
+
+stat.rsi %>%
+  ggplot(aes(time, value, color = stat)) +
+  labs(title = "Mean RSI for Key Stocks and Mean RSI for Sector",
+       subtitle = "From Jan 2020 to date of report",
+       y = "RSI") +
+  geom_line() +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b %Y"), max.major.breaks=12) +
+  theme(axis.title.x=element_blank())
+
+```
+Next we will create the spread column and chart it.  Taking the two values from the previous chart, subtracting them, and plotting the spread.
+
+```{r, warning=FALSE}
+
+data.frame(mean.rsi, key.rsi) %>%
+  mutate(spread = keymean - mean) %>%
+  select(time, spread) %>%
+ggplot(aes(time, spread)) +
+  labs(title = "Spread of Alibaba RSI less Mean RSI for China Tech Sector",
+       subtitle = "From Jan 2020 to date of report",
+       caption = "Rest of sector excludes Alibaba and Index ETF",
+       y = "RSI") +
+  geom_line() +
+  geom_hline(yintercept = 0, color = "black", alpha = 0.5) +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b %Y"), max.major.breaks=12) +
+  theme(axis.title.x=element_blank())
+
+```
+This next chunk will run the same calculation as the prior, but with Tencent instead.  We will plot the spread of Tencents RSI spread to the China basket excluding Tencent.
+
+```{r, include=FALSE, warning=FALSE}
+
+mean.rsi <- df.RSI %>%
+  filter(symbol != index) %>%
+  filter(!symbol %in% "TCEHY") %>%
+  group_by(time) %>%
+  summarise(mean = mean(RSI, na.rm = TRUE))
+key.rsi <- df.RSI %>%
+  filter(symbol %in% "tcehy") %>%
+  group_by(time) %>%
+  summarise(mean = mean(RSI, na.rm = TRUE)) %>%
+  select(keymean = mean)
+stat.rsi <- data.frame(mean.rsi, key.rsi) %>%
+  gather(key = "stat", value = "value", -time)
+
+```
+
+```{r warning=FALSE}
+
+data.frame(mean.rsi, key.rsi) %>%
+  mutate(spread = keymean - mean) %>%
+  select(time, spread) %>%
+  ggplot(aes(time, spread)) +
+  labs(title = "Spread of Tencent RSI less Mean RSI for China Tech Sector",
+       subtitle = "From Jan 2020 to date of report",
+       caption = "Rest of sector excludes Tencent and Index ETF",
+       y = "RSI") +
+  geom_line() +
+  geom_hline(yintercept = 0, color = "black", alpha = 0.5) +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b %Y"), max.major.breaks=12) +
+  theme(axis.title.x=element_blank())
+
+```
+
+This next chart compares the RSI to index spreads for Tencent and Alibaba.  An interesting visual showing their relative strength against the rest of the index.  When looking at these results its important to consider that the mean and median calculations in this dataset are based off equal weight indexes.  It would likely be more appropriate to do the same calculation on a market capitalization weighted basis to get a better guage of sector performance.
+
+```{r, echo=FALSE, warning=FALSE}
+
+tcehy.spread.rsi <- data.frame(mean.rsi, key.rsi) %>%
+  mutate(spread = keymean - mean) %>%
+  select(time, TCEHY.Spread = spread)
+
+stat.comp.rsi <- data.frame(tcehy.spread.rsi, BABA.Spread = baba.spread.rsi$BABA.Spread) %>%
+  gather(key = "type", value = "value", -time)
+
+stat.comp.rsi %>%
+ggplot(aes(time, value, color = type)) +
+  labs(title = "Spread of Alibaba and Tencent Mean RSI less Mean RSI for China Tech Sector",
+       subtitle = "From Jan 2020 to Date of Report",
+       y = "RSI Spread",
+       caption = " ") +
+  geom_line() +
+  geom_hline(yintercept = 0, color = "black") +
+  geom_hline(yintercept = 0, color = "black", alpha = 0.5) +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%b %Y"), max.major.breaks=12) +
+  theme(axis.title.x=element_blank())
+
+```
+
+
+## Exchange Spreads
+Next we will look at the spread between the price of Alibaba on the US NYSE and the price on the Hong Kong market.  To understand the relationship between the two, use this calculation.  1x US Share of Alibaba = 8x HK Shares.  1x HK / HK-USD exchange = HK Price in US.  Comparisons are done on this equivalent basis.  For this calculation the smooth (Loess) line above zero represents a premium for HK shares of the US shares.  If the line goes below zero it represents a discount.  This spread is calculated on a daily absolute US dollar basis.
+
+```{r warning=FALSE}
+
+spread.sl.hk <- stock.data.hk %>%
+  spread(symbol, adjusted)
+
+spread.sl.hk <- spread.sl.hk %>%
+  mutate(BABA.conv = BABA / 8)
+
+spread.sl.hk <- spread.sl.hk %>%
+  filter(date > "2021-01-01") %>%
+  select(date, BABA.conv, BABAHK = "9988.HK", HKD = "HKD=X") %>%
+  mutate(BABACONV = BABAHK / HKD) %>%
+  select(date, BABA.conv, BABACONV)
+
+spread.sl.hk <- spread.sl.hk %>%
+  mutate(abs.spread = BABACONV - BABA.conv)
+spread.sl.hk.copy <- spread.sl.hk %>%
+  mutate(abs.spread = BABACONV - BABA.conv)
+
+```
+
+```{r , echo=FALSE, warning=FALSE}
+
+spread.sl.hk %>%
+  ggplot(aes(date, abs.spread)) +
+    geom_col() +
+    geom_smooth() +
+  labs(title = "Alibaba: HK and US Exchange, US Dollar Spread",
+       subtitle = "From Jan 2021 to date of report",
+       caption = "Comparison with US value of HK shares.") +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%B"), max.major.breaks=12) +
+  theme(axis.title.x=element_blank())
+
+```
+Next we will look at the exchange spread on a daily percentage basis.
+
+```{r, warning=FALSE}
+
+spread.sl.hk <- spread.sl.hk %>%
+  mutate(spread.pct = (abs.spread/BABACONV)*100) %>%
+  select(date, spread.pct) 
+
+spread.sl.hk %>%
+  ggplot(aes(date, spread.pct)) +
+  labs(title = "Alibaba: Hong Kong and US Exchange Spread",
+       subtitle = "Daily Percentage.  Hong Kong Price Premium Has Been Maintained.",
+       caption ="Loess Mean Calculation.  Time Period: 01/01/2021 to 12/08/2021",
+       y = "Percent Spread") +
+  stat_smooth(method = loess) +
+  geom_hline(yintercept = 0, alpha = 0.5) +
+  geom_col(alpha = 0.7) +
+  scale_x_bd(business.dates=time, labels = date_format(format = "%B"), max.major.breaks=12) +
+  theme(axis.title.x=element_blank())
+
+```
+
+
+## Density Plot Shift
+Lastly, we will come back to the CCI data for Alibaba, Tencent, and JD.  We will review the density of CCI results for 2 time periods.  The first is Jan 1, 2020 to Jan 1, 2021 which is presented below.
+
+```{r, echo=FALSE, warning=FALSE}
+
+df.CCI$symbol[df.CCI$symbol == "jd"] <- "JD"
+df.CCI$symbol[df.CCI$symbol == "baba"] <- "Alibaba"
+df.CCI$symbol[df.CCI$symbol == "tcehy"] <- "Tencent"
+
+new.key.tech <- c("Alibaba", "JD", "Tencent")
+
+df.CCI %>%
+  select(time, Corporation = symbol, CCI) %>%
+  filter(time >"2020-01-01") %>%
+  filter(time < "2021-01-01") %>%
+  filter(Corporation %in% new.key.tech) %>%
+  ggplot(aes(CCI, fill = Corporation)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "CCI Density: Time Period Analysis (2020)",
+       subtitle = "Tracking Commodity Channel Index Shift for Alibaba, JD, and Tencent.",
+       caption = "Time Series: 01/01/2020 to 01/01/2021.",
+       y = "Density") +
+  xlim(-300,300) +
+  theme(axis.title.x=element_blank())
+
+```
+
+The second is from Jan 2, 2021 to August 12, 2021.  These plots show a clear shift in the price density for the 3 key internet companes in China.
+
+```{r, echo=FALSE, warning=FALSE}
+
+df.CCI %>%
+  select(time, Corporation = symbol, CCI) %>%
+  filter(time >"2021-02-01") %>%
+  filter(time < "2021-12-08") %>%
+  filter(Corporation %in% new.key.tech) %>%
+  ggplot(aes(CCI, fill = Corporation)) +
+    geom_density(alpha = 0.5) +
+  labs(title = "CCI Density: Time Period Analysis (2021)",
+       subtitle = "Tracking Commodity Channel Index Shift for Alibaba, JD, and Tencent.",
+       caption = "Time Series: 02/01/2021 to 12/08/2021.",
+       y = "Density") +
+  xlim(-300,300) +
+  theme(axis.title.x=element_blank())
+
+```
+
+### Custom Index 
+Calculating a custom index with pre-established weights that are setup based on current market capitalization.  weights are printed at bottom of code chunk.
+
+```{r, echo=FALSE, warning=FALSE}
+
+# Slightly different Index, with custom fixed weights.
+# Note that DIDI and LU are included on this list.
+
+list <- c("BABA","TCEHY","JD","PDD","NIO","MPNGY","DIDI","NTES","BILI","BIDU","WB","TCOM","LU")
+wts <- c(0.15, 0.15, 0.10, 0.10, 0.10, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05)
+
+start.date <- as.Date("2021-01-01")
+end.date <- Sys.Date()
+
+# Get the stock price imported at beginning of project.  Yahoo data and we are using tidyquant to get the daily returns.
+stock_return <- stock.list.2 %>%
+  group_by(symbol) %>%
+  tq_transmute(select     = adjusted, 
+               mutate_fun = periodReturn, 
+               period     = "daily", 
+               col_rename = "Ra")
+
+basket <- stock_return %>%
+  tq_portfolio(assets_col   = symbol, 
+               returns_col  = Ra, 
+               weights      = wts, 
+               col_rename   = "investment.growth",
+               wealth.index = TRUE) %>%
+  mutate(investment.growth = investment.growth *225)
+
+basket <- basket %>%
+  mutate(symbol = "index") %>%
+  rename("adjusted" = investment.growth)
+
+basket %>%
+  ggplot(aes(x = date, y = adjusted)) +
+  geom_line(size = 1, color = palette_light()[[1]]) +
+  labs(title = "Custom Index Time Series",
+       subtitle = "Fixed Compondent Weight Portfolio with 13 Holdings",
+       x = "", y = "Index Value") +
+    scale_x_bd(business.dates=time, labels = date_format(format = "%B"), max.major.breaks=12)
+
+```
+
+Now we can look performance of stocks on an return basis.  Looking at comparisons of the index to Alibaba, Tencent and SPY. We use Tidyquant for the conversion from price series to daily return data.
+
+```{r warning=FALSE}
+
+sp.baba <- stock.list.2 %>%
+  filter(date > "2021-01-01") %>%
+  filter(symbol %in% "BABA") %>%
+  select(symbol, date, adjusted)
+
+merged <- full_join(sp.baba, basket, by = c('symbol','date', 'adjusted'))
+
+merged.returns <- merged %>%
+  group_by(symbol) %>%
+  tq_transmute(select     = adjusted, 
+               mutate_fun = periodReturn, 
+               period     = "daily", 
+               col_rename = "daily_return")
+
+# probably a better way to do this.
+merged.returns <- merged.returns %>%
+  mutate(cm.ret = 100*(cumprod(1 + daily_return)))
+
+merged.returns %>%
+  ggplot(aes(date, cm.ret-100, color = symbol)) +
+    labs(title = "Custom Index Returns Compared to Alibaba",
+       subtitle = "Fixed Compondent Weight Portfolio with 13 Holdings and Alibaba",
+       x = "", y = "Percent Return") +
+    geom_line() +
+      scale_x_bd(business.dates=time, labels = date_format(format = "%b"), max.major.breaks=12)
+
+```
+Next we look at Tencent.
+
+```{r, echo=FALSE, warning=FALSE}
+
+sp.tencent <- stock.list.2 %>%
+  filter(date > "2021-01-01") %>%
+  filter(symbol %in% "TCEHY") %>%
+  select(symbol, date, adjusted)
+
+merged <- full_join(sp.tencent, basket, by = c('symbol','date', 'adjusted'))
+
+merged.returns <- merged %>%
+  group_by(symbol) %>%
+  tq_transmute(select     = adjusted, 
+               mutate_fun = periodReturn, 
+               period     = "daily", 
+               col_rename = "daily_return")
+
+merged.returns <- merged.returns %>%
+  mutate(cm.ret = 100*(cumprod(1 + daily_return)))
+
+merged.returns %>%
+ggplot(aes(date, cm.ret-100, color = symbol)) +
+    labs(title = "Custom Index Returns Compared to Tencent",
+       subtitle = "Fixed Compondent Weight Portfolio with 13 Holdings and Tencent",
+       x = "", y = "Percent Return") +
+    geom_line()
+
+```
+Lastly we will look at the index comparison to SPY.
+
+```{r, echo=FALSE, warning=FALSE}
+
+sp.spy <- stock.data %>%
+  filter(date > "2021-01-01") %>%
+  filter(symbol %in% "SPY") %>%
+  select(symbol, date, adjusted)
+
+merged <- full_join(sp.spy, basket, by = c('symbol','date', 'adjusted'))
+
+merged.returns <- merged %>%
+  group_by(symbol) %>%
+  tq_transmute(select     = adjusted, 
+               mutate_fun = periodReturn, 
+               period     = "daily", 
+               col_rename = "daily_return")
+
+merged.returns <- merged.returns %>%
+  mutate(cm.ret = 100*(cumprod(1 + daily_return)))
+
+merged.returns %>%
+ggplot(aes(date, cm.ret-100, color = symbol)) +
+    labs(title = "Custom Index Returns Compared to SPY",
+       subtitle = "Fixed Compondent Weight Portfolio with 13 Holdings and SPY",
+       x = "", y = "Percent Return") +
+    geom_line()
+
+```
+
+Thank you for taking the time to read this report.  
+
