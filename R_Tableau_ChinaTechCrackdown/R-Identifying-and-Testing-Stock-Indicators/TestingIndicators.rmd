@@ -27,7 +27,7 @@ library(gridExtra)
 ```{r echo = FALSE, warning = FALSE, message = FALSE}
 stock.list <- read_csv("stock_list.csv")
 ```
-
+View the rmarkdown code on my Github at https://tinyurl.com/austinmcghee
 
 ### Dollar Volume
 In the price data we have dates and daily values for OHLC, adjusted and share volume.  We will create a new column called Dollar Volume (DV) which is the adjusted price multiplied by volume.  DV can be used to get an idea of money flow.  All prices are in US Dollar.
