@@ -21,15 +21,18 @@ library(ggrepel)
 library(scales)
 library(bdscale)
 library(gridExtra)
+
 ```
 
 ```{r echo = FALSE, warning = FALSE, message = FALSE}
 stock.list <- read_csv("stock_list.csv")
 ```
-### Calculating the Indicator
-In the price data we have date, OHLC, adjusted and volume.  These are all the variables we will be working with in this project.  We will create a new column called Daily Dollar Volume which is the adjusted price multipled by the volume for the day.  This links volume data to share prices and can provide an absolute measure of the transaction volume.
 
-Using the Daily Dollar Volume (abv DDV) we can measure both individual and groups of stocks.  For example the DDV for Didi may be 1 billion USD, and the sum of DDV for US listed China Tech (>3 billion Market Cap) may be $30 billion.  We could also calculate the mean DDV for the Top 5 symbols and analyze it's relationship to the mean DDV for all US listed China Tech.
+
+### Dollar Volume
+In the price data we have dates and daily values for OHLC, adjusted and share volume.  We will create a new column called Dollar Volume (DV) which is the adjusted price multiplied by volume.  DV can be used to get an idea of money flow.  All prices are in US Dollar.
+
+Using the DV we can measure both individual stocks and groups.  For example the DV for Didi may be $1 billion, and the sum total of DV for all US listed China Tech (>$3 billion Market Cap) may be $30 billion.  We could also calculate the average DV for the top five symbols and analyze it's relationship to the mean DV for all US listed China Tech.  We will refer to this filtered US listed China Tech as China Tech moving forward.
 <p>&nbsp;</p>
 
 ```{r, echo=FALSE, warning=FALSE}
@@ -68,11 +71,12 @@ p2 <- stock.list %>%
 grid.arrange(p1,p2, ncol = 1)
 
 ```
-We can see in the figure above that the sum of DDV for China is quite volatile and it's general value tends to shift slowly on a monthly and quarterly basis.  From this data alone we can track transaction volume, but it doesn't provide much insight into the direction of the underlying share price.  
+<p>&nbsp;</p>
+We can see in the figure above that the sum of DV for China Tech is quite volatile but its general value tends to shift on a quarterly or annual basis.  From this data alone we can get an idea of the money flow in China Tech, but it doesn't provide insight into the direction of the underlying share price.
 
 
 ### Distribution
-How is DDV distributed among the individual stocks?  We could be looking at a basket of stocks with similiar DDV or a select few making a disproportionate contribution.  In the chart below, each column represents a stock and the y (US Billions) axis is a measure of of the Average DDV for the fiscal year in the chart title.
+How is DV distributed among the individual stocks making up China Tech?  We could be looking at a basket of stocks with at similar DV, or a minority few making a disproportionate contribution.  In the chart below, each column represents a stock and the y axis (US Billions) is a measure of the average daily DV for the year.
 
 ```{r echo=FALSE, warning=FALSE, out.width="70%", message = FALSE}
 
@@ -86,7 +90,7 @@ P1 <- stock.list %>%
   group_by(Symbol) %>%
   summarise(doll_voll_avg = mean(dollar_vol)) %>%
   ggplot(aes(reorder(Symbol,doll_voll_avg), doll_voll_avg)) +
-  geom_col() + 
+  geom_col() +
   labs(title = "2018",
        subtitle = "Highly concentrated in a single name",
        y = "USD (Billions)", x="Individual Stocks") +
@@ -95,7 +99,7 @@ P1 <- stock.list %>%
   theme(
     legend.position = "NULL",
     axis.text.x=element_blank()) +
-  ylim(0,4.5) 
+  ylim(0,4.5)
 
 p2 <- stock.list %>%
   filter(date > "2019-01-01") %>%
@@ -106,7 +110,7 @@ p2 <- stock.list %>%
   group_by(Symbol) %>%
   summarise(doll_voll_avg = mean(dollar_vol)) %>%
   ggplot(aes(reorder(Symbol,doll_voll_avg), doll_voll_avg)) +
-  geom_col() + 
+  geom_col() +
   labs(title = "2019",
        subtitle = "",
        y = "USD (Billions)", x="Individual Stocks") +
@@ -115,7 +119,7 @@ p2 <- stock.list %>%
   theme(
     legend.position = "NULL",
     axis.text.x=element_blank()) +
-  ylim(0,4.5) 
+  ylim(0,4.5)
 
 p3 <- stock.list %>%
   filter(date > "2020-01-01") %>%
@@ -126,7 +130,7 @@ p3 <- stock.list %>%
   group_by(Symbol) %>%
   summarise(doll_voll_avg = mean(dollar_vol)) %>%
   ggplot(aes(reorder(Symbol,doll_voll_avg), doll_voll_avg)) +
-  geom_col() + 
+  geom_col() +
   labs(title = "2020",
        subtitle = "",
        y = "USD (Billions)", x="Individual Stocks") +
@@ -135,7 +139,7 @@ p3 <- stock.list %>%
   theme(
     legend.position = "NULL",
     axis.text.x=element_blank()) +
-  ylim(0,4.5) 
+  ylim(0,4.5)
 
 p4 <- stock.list %>%
   filter(date > "2021-01-01") %>%
@@ -146,7 +150,7 @@ p4 <- stock.list %>%
   group_by(Symbol) %>%
   summarise(doll_voll_avg = mean(dollar_vol)) %>%
   ggplot(aes(reorder(Symbol,doll_voll_avg), doll_voll_avg)) +
-  geom_col() + 
+  geom_col() +
   labs(title = "2021",
        subtitle = "Distribution of Daily Dollar Volume (Mean)",
        y = "USD (Billions)", x="Individual Stocks") +
@@ -155,16 +159,30 @@ p4 <- stock.list %>%
   theme(
     legend.position = "NULL",
     axis.text.x=element_blank()) +
-  ylim(0,4.5) 
+  ylim(0,4.5)
 
 grid.arrange(p4,p3,p2,P1, ncol = 2)
 
 ```
 
-Observing this chart, we can see that returns are highly concentrated but have progressively reduced concentration since 2018.  The first year where there was a close runner-up to top rank was in 2021.  The next section labels the individual stocks in these charts and explores them further.
+We can see that DV is concentrated in 1-2 stocks each year and have progressively reduced concentration since 2018.  In the last four years, the first where there was a close runner-up to top rank was in 2021.  The next section identifies the individual stocks in these charts and explores them further.
 
-### Individual Stocks 
-Which stock is doing most of the heavy lifting? We can see that for every time period Alibaba (BABA) has has the highest DDV (Mean).  
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+### Individual Stocks
+Which stock is doing most of the heavy lifting? We can see that Alibaba (BABA) has been the DV leader every year.  The second spot has been Nio (NIO) or Baidu (BIDU).  These charts cover 2019-2021 but have replaced 2018 with a view of the last 3 months.  Based on this sample we can see that the composition of stocks in the 3 month view is the same as the annual view, suggesting composition remains the same in shorter time horizons.
 
 ```{r echo=FALSE, warning=FALSE, out.width="70%", message = FALSE}
 
@@ -178,7 +196,7 @@ p1 <- stock.list %>%
   summarise(doll_voll_avg = mean(dollar_vol)) %>%
   filter(doll_voll_avg > 0.25) %>%
   ggplot(aes(reorder(Symbol,doll_voll_avg), doll_voll_avg, fill = -doll_voll_avg)) +
-  geom_col() + 
+  geom_col() +
   labs(title = "2019",
        y = "USD (Billions)", x="") +
   theme_tq() +
@@ -196,13 +214,13 @@ p2 <- stock.list %>%
   summarise(doll_voll_avg = mean(dollar_vol)) %>%
   filter(doll_voll_avg > 0.75) %>%
   ggplot(aes(reorder(Symbol,doll_voll_avg), doll_voll_avg, fill = -doll_voll_avg)) +
-  geom_col() + 
+  geom_col() +
   labs(title = "2020",
        y = "USD (Billions)", x="") +
   theme_tq() +
   theme(
     legend.position = "NULL") +
-    ylim(0,5) 
+    ylim(0,5)
 
 p3 <- stock.list %>%
   filter(date > "2021-01-01") %>%
@@ -214,7 +232,7 @@ p3 <- stock.list %>%
   summarise(doll_voll_avg = mean(dollar_vol)) %>%
   filter(doll_voll_avg > 0.75) %>%
   ggplot(aes(reorder(Symbol,doll_voll_avg), doll_voll_avg, fill = -doll_voll_avg)) +
-  geom_col() + 
+  geom_col() +
   labs(title = "2021",
        y = "USD (Billions)", x="") +
   theme_tq() +
@@ -232,7 +250,7 @@ p4 <- stock.list %>%
   summarise(doll_voll_avg = mean(dollar_vol)) %>%
   filter(doll_voll_avg > 0.75) %>%
   ggplot(aes(reorder(Symbol,doll_voll_avg), doll_voll_avg, fill = -doll_voll_avg)) +
-  geom_col() + 
+  geom_col() +
   labs(title = "Last 3 Months",
      y = "USD (Billions)", x="") +
   theme_tq() +
@@ -244,12 +262,27 @@ grid.arrange(p4,p3,p2,p1, ncol = 2)
 
 ```
 
-We can see that for every time period Alibaba (BABA) has has the highest DDV (Mean).  The top stocks were selected by running a filter of DDV (Mean) with minimum 500MM USD over US listed China Technology stocks with a minimum market cap of $3 billion USD. In 2019 the filter was lowered to minimum 250MM USD to accommodate more results, otherwise it would only show Alibaba.
+The top stocks were selected by filtering by a minimum DV (Mean) of $500 million and a minimum market capitalization of $3 billion (August, 2021). In 2019 the minimum DV (Mean) filter was reduced to $250 million to show more results, otherwise it would only show Alibaba.
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
 <p>&nbsp;</p>
 
-### Comparing Alibaba
+### Alibaba Comparisons
+With Alibaba having the highest DV of China Tech we will focus our analysis on it.  How does Alibaba's performance compare to the rest of China Tech?  Can we find relative indicators in the DV by comparing Alibaba to the rest of China Tech?
 
-After taking the Sum of the index we will look at the largest stock, Alibaba, against the set to look for potential indicators.  we take the sum of thedaily dollar volume for the sector and deduct alibaba from the calulation.  One dataframe is the sum of daily dollar volume for the china sector (think transaction volume) and the other is alibaba daily daily dollar volume.  We deduce alibaba from the index total to calculate the difference.  when the difference is negative, it means that more daily dollar volume is trading in alibaba then the rest of the china tech sector combined.  We are looking at this indicator specifically in the 2020 and 2021 environemtns. 
+First we will isolate Alibaba's DV and divide it by the China Tech DV (Sum).  This tells us the percent of China Tech (Sum) that Alibaba contributes on a daily basis.  We will focus on dates in the period January 2020 to August 2021.
 
 ```{r echo=FALSE, warning=FALSE, message = FALSE}
 sl <- stock.list %>%
@@ -278,7 +311,7 @@ s1 <- slc %>%
   select(date, indexExBaba.LessBABA) %>%
   ggplot(aes(date, indexExBaba.LessBABA)) +
   geom_line() +
-  geom_smooth() + 
+  geom_smooth() +
   geom_area(alpha = 0.2) +
   labs(title = "Daily Dollar Value: (Sum) US Listed China Tech Less Alibaba",
        y = "Percent", x="") +
@@ -300,13 +333,20 @@ s2 <- slc %>%
 grid.arrange(s1,s2, ncol = 1)
 
 ```
-I am skeptical of how useful it will be as an indicator for farther back periods, because we are looking at it as an absolute indicator, perhaps it would be better to look back at past periods when using a measn indicator.  we would likely need to factor in changes to the basket of stocks.  This was chosen on market capitalization above a theshold, there would be stocks coming and going from that catagory that may change results.  New market entrants could confuse results as well.
+Looking at the data we can see that Alibaba is key contributor to the China Tech DV.  The relationship is volatile, but it's trendline ranges from 20-50%.  It's important to note that this an absolute measure, which is why I think it is important to reference shorter time periods.  Initial public offerings for instance will result in another stock that increases China Tech DV and will reduce the contribution of Alibaba to the total.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
 <p>&nbsp;</p>
 <p>&nbsp;</p>
 
 
 ### Spread Comparison
-Calculating and comparing Alibaba spread to the rest of the market.
+Next we will look at the DV (Sum) spread between Alibaba and China Tech.  To calculate this we will first isolate Alibaba DV and deduct Alibaba from China Tech DV.  Now we are working with Alibaba DV and China Tech without Alibaba.  Next we take China Tech without Alibaba DV (Sum) and subtract Alibaba DV to create the spread.  
 
 ```{r echo=FALSE, warning=FALSE, out.width="90%",message = FALSE}
 
@@ -333,7 +373,7 @@ c1 <- slc %>%
   labs(title = "DDV Spread",
        subtitle = "(Sum) Index Less Alibaba",
        y = "USD (Billions)", x="") +
-  theme_tq() 
+  theme_tq()
 
 c2 <- slc %>%
   filter(date > "2021-03-01") %>%
@@ -346,12 +386,14 @@ c2 <- slc %>%
   labs(title = "A closer Look the last 6 months",
               subtitle = "Occurs infrequently",
        y = "USD (Billions)", x="") +
-  theme_tq() 
+  theme_tq()
 
 grid.arrange(c1,c2, ncol = 2)
 ```
+We can see that the is volatile, but positive most of the time.  What does it mean when it's negative or positive?  Can be looked at as Alibaba having higher or lower DV compared to China Tech.  The values are absolute, we can reference the spread value with the y axis.
 
-We can see that the number of instances where the spread is less than 0 are low.  These occurances are visualized in the chart on the next page.  
+We can see that negative spreads are uncommon, especially since 2021.  However since 2021 they have become more erratic.  The chart below isolates the negative spreads to get a better visual representation.  The largest negative spread occurred on December 24, 2020 when the Ant Financial IPO was cancelled.  On that day Alibaba has over $20 billion more dollar volume than the rest of China Tech combined.
+
 <p>&nbsp;</p>
 
 
@@ -376,11 +418,10 @@ ddv <- slc
 
 ```
 
-### Indicator Testing
-After observing that the number of occurencees where the spread is below zero have gone down in 2021, it may be worth exploring whether these occurences can now serve as an indicator.  If we take the occurences and the dates they happened we can then reference the stock returns for that date, the next trading day, and for 5 trading days in the future.  
+### Testing Negative DV Indicators
+We can see that the number of occurrences where the spread is negative have decreased in 2021.  It may be worth exploring whether these occurrences can now serve as an indicator for next day price return.  If we take the occurrences (negative spread, date), match with the same day returns and then calculate next day returns we can test whether negative DV occurrences could be a useful indicator of returns in 2021.
 
-Some dates with large spreads will be negative and some will be positive.  We will filter on their +/- status and analyze them seperately.  Statistics will also be provided on the group as a whole.
-
+Same day return refers tp the return of Alibaba on the date the negative spread occured.  Next day return refers to the next trading day.  It is worth noting that some same day returns with negative spreads will be positive and some will be negative.  Alibaba can have a negative spread of $2 billion and a positive same day return of 5%.  Returns are sorted by highest negative spread.
 
 ```{r, include=FALSE, warning=FALSE, message = FALSE}
 
@@ -389,48 +430,137 @@ store <- slc %>%
   filter(date > "2020-01-01") %>%
   mutate(Spread = index.dv-baba.dv) %>%
   select(date, Spread) %>%
-  filter(Spread < 0) 
-  
+  filter(Spread < 0)
+
 # Taking stoking price data, using Tidyquant to get returns
 baba.returns <- stock.list %>%
   filter(Symbol %in% "BABA") %>%
   filter(date > "2020-01-01") %>%
   select(date, adjusted) %>%
-tq_transmute(adjusted, 
-             periodReturn, 
-             period = "daily", 
-             type = "log", 
-             col_rename = "returns") 
-  
+tq_transmute(adjusted,
+             periodReturn,
+             period = "daily",
+             type = "log",
+             col_rename = "returns")
+
 # Next we combine date, spread, and adjusted together
 df <- left_join(store, baba.returns, by = "date")
 
 ```
-Now taking a look at the results
 
 ```{r, echo=FALSE, warning=FALSE, message = FALSE}
 
-# Viewing the dataframe, sorting by largest spreads
-# Note there are positive and negative returns
-df %>%
+view <- df %>%
   arrange(-desc(Spread)) %>%
-  mutate_if(is.numeric, round, 4) %>%
-  head()
+  mutate_if(is.numeric, round, 4) 
+head(view)
 
 ```
-Looking at the results of the high spreads filter.
+This table has 66 total rows.  Next we will explore the relationship between the negative spread values and returns in more depth.
 
 ```{r, echo=FALSE, warning=FALSE, message = FALSE}
 
-df %>%
-  arrange(-desc(Spread)) %>%
-  mutate_if(is.numeric, round, 4) %>%
-  filter(Spread < -1)
+p1 <- view %>%
+  ggplot(aes(reorder(date, -Spread), -Spread)) +
+    geom_col() +
+  labs(title = "Negative Spread Distribution",
+       y = "Spread", x="") +
+    theme(axis.text.x=element_blank(),
+        axis.title.x=element_blank()) 
+
+p2 <- view %>%
+  filter(Spread > -20) %>%
+  ggplot(aes(reorder(date, -Spread), -Spread)) +
+    geom_col() +
+  labs(title = "Removing Ant IPO Outlier",
+       y = "Spread", x="") +
+    theme(axis.text.x=element_blank(),
+        axis.title.x=element_blank()) 
+
+p3 <- view %>%
+  filter(Spread > -20) %>%
+  filter(returns > 0) %>%
+  ggplot(aes(reorder(date, -Spread), -Spread)) +
+    geom_col() +
+  labs(title = "Spreads with Negative Returns",
+       y = "Spread", x="") +
+    theme(axis.text.x=element_blank(),
+        axis.title.x=element_blank()) +
+  ylim(0,4)
+
+p4 <- view %>%
+  filter(Spread > -20) %>%
+  filter(returns < 0) %>%
+  ggplot(aes(reorder(date, Spread), -Spread)) +
+    geom_col() +
+  labs(title = "Spreads with Positive Returns",
+       y = "Spread", x="") +
+    theme(axis.text.x=element_blank(),
+        axis.title.x=element_blank()) +
+  ylim(0,4)
+
+p5 <- view %>%
+  filter(Spread > -20) %>%
+  filter(returns < 0) %>%
+  ggplot(aes(reorder(date, -returns), -returns*100)) +
+  geom_col() +
+  labs(title = "Distribution of Negative Returns",
+       y = "Return", x="") +
+  theme(axis.text.x=element_blank(),
+        axis.title.x=element_blank()) +
+  ylim(0,9)
+
+p6 <- view %>%
+  filter(Spread > -20) %>%
+  filter(returns > 0) %>%
+  ggplot(aes(reorder(date, -returns), returns*100)) +
+  geom_col() +
+  labs(title = "Distribution of Positive Returns",
+       y = "% Return", x="") +
+  theme(axis.text.x=element_blank(),
+        axis.title.x=element_blank()) +
+  ylim(0,9)
+
+  
+grid.arrange(p1,p2,p3,p4,p5,p6, ncol = 2)
 
 
 ```
+Next we will explore the relationship between a negative spread and the same day return.  Although we have a small number of data points we can roughly show that higher absolute returns are associated with large (negative) DV spreads.
 
-Looking at the negative returns
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+
+p1 <- view %>%
+  filter(Spread > -20) %>%
+  filter(returns > 0) %>%
+  ggplot(aes(-Spread, returns*100)) +
+  geom_point() + 
+  stat_smooth(method=lm) +  
+  labs(title = "Positive Returns",
+       y = "Same Day % Return", x="Negative Spread") +
+  ylim(0,10) +
+  xlim(0,4.5)
+
+p2 <- view %>%
+  filter(Spread > -20) %>%
+  filter(returns < 0) %>%
+  ggplot(aes(-Spread, -returns*100)) +
+  geom_point() + 
+  stat_smooth(method=lm) +  
+  labs(title = "Negative Returns",
+       y = "Same Day % Return", x="Negative Spread") +
+  ylim(0,10) +
+  xlim(0,4.5)
+
+
+grid.arrange(p1,p2, ncol = 2)
+
+```
+
+
+Now we will filter for negative same day returns with negative spreads greater than 1.  We selected this negative filter value based on the the spreads for negative/positive return charts above.  It appears 1 is a level where there are fewer results and more volatility in returns.   The Ant IPO cancellation on December 24, 2020 is a major outlier.
+
+We have 9 instances of negative returns with negative spreads greater than 1.
 
 ```{r, echo=FALSE, warning=FALSE, message = FALSE}
 
@@ -445,12 +575,12 @@ print()
 
 ```
 
-Now the positive returns
+Now we will filter same day returns for positive returns.  We have 9 instances here as well.  We will remove the Ant IPO outlier for 8 instances.
 
 ```{r, echo=FALSE, warning=FALSE, message = FALSE}
 
 # Filtering by positive returns and sorting by largest spread
-# Note 
+# Note
 df %>%
   filter(returns > 0) %>%
   filter(Spread < -1) %>%
@@ -459,6 +589,7 @@ df %>%
   print()
 
 ```
+Outside of the major outlier in the negative 
 
 Now we will take the dates from the previous dataframe and add a day to it.  Then we will take the dates and run them against the table of daily returns we have.
 
@@ -477,7 +608,7 @@ Matching the dates with returns, some are NA because the next business day comes
 ```{r, echo=FALSE, warning=FALSE, message = FALSE}
 
 # now take this added day and join like we did before match the dates with the returns,
-comb <- left_join(dates,baba.returns, by = "date") 
+comb <- left_join(dates,baba.returns, by = "date")
 
 # Looks good, some dates NA, which are weekends.  We will sim ahead to the next day for those next and merge after
 comb %>% mutate_if(is.numeric, round, 4) %>%
@@ -531,9 +662,8 @@ comb3 %>% mutate_if(is.numeric, round, 4) %>%
 print()
 
 ```
-We will keep this date.
 
-```{r, echo=FALSE, warning=FALSE, message = FALSE}
+```{r, include=FALSE, warning=FALSE, message = FALSE}
 # Add the day
 dates <- comb3 %>%
   filter(returns %in% NA) %>%
@@ -552,7 +682,7 @@ Here are the last 2 dates we need. Omitting 2021-08-24 as that date was in the f
 ```{r, echo=FALSE, warning=FALSE, message = FALSE}
 
 comb4 <- left_join(dates,baba.returns, by = "date")
-# now we got the other 2. 
+# now we got the other 2.
 
 comb4 %>% mutate_if(is.numeric, round, 4) %>%
 print()
@@ -581,9 +711,9 @@ merged %>% mutate_if(is.numeric, round, 4) %>%
 print()
 
 ```
-Renaming the returns to next.day.return for easier reference when we combine with the spreads and same day return dataframe.
 
-```{r, echo=FALSE, warning=FALSE, message = FALSE}
+
+```{r, include=FALSE, warning=FALSE, message = FALSE}
 
 temp <- merged %>%
   rename(next.day.return = returns) %>%
@@ -596,7 +726,7 @@ print()
 ```
 
 
-```{r, echo=FALSE, warning=FALSE, message = FALSE}
+```{r, include=FALSE, warning=FALSE, message = FALSE}
 
 t2 <- df %>%
   filter(returns < 0) %>%
@@ -607,7 +737,7 @@ t2 %>% mutate_if(is.numeric, round, 4) %>%
 print()
 
 ```
-Now we put it all together in a dataframe.  We are looking at date, spread, same day, and next trading day return. 
+Now we put it all together in a dataframe.  We are looking at date, spread, same day, and next trading day return.
 
 ```{r, echo=FALSE, warning=FALSE, message = FALSE}
 
@@ -617,12 +747,164 @@ performance <- data.frame(temp,t2) %>%
 performance %>% mutate_if(is.numeric, round, 4) %>%
 print()
 ```
-Percentage
-```{r, echo=FALSE, warning=FALSE, message = FALSE}
-performance %>%
-  summarise(mean_next_day_return = mean(next.day.return*100)) %>%
+Now we will do the same for positive returns.  The table is below
+```{r, include=FALSE, warning=FALSE, message = FALSE}
+
+# Filtering by positive returns and sorting by largest spread
+# Note
+df %>%
+  filter(returns > 0) %>%
+  filter(Spread < -1) %>%
+  arrange(-desc(Spread)) %>%
+  mutate_if(is.numeric, round, 4) 
+
+dates <- df %>%
+  filter(returns > 0) %>%
+  filter(Spread < -1) %>%
+  select(date)  %>%
+  mutate(date = date + days (1))
+
+# now take this added day and join like we did before match the dates with the returns,
+comb <- left_join(dates,baba.returns, by = "date")
+
+# Looks good, some dates NA, which are weekends.  We will sim ahead to the next day for those next and merge after
+comb %>% mutate_if(is.numeric, round, 4) %>%
   print()
+
+# get the NA and add a day to them
+dates <- comb %>%
+  filter(returns %in% NA) %>%
+  select(date) %>%
+  mutate(date = date + days (1))
+
+# keep the ones we want for later
+comb <- comb %>%
+  filter(!returns %in% NA)
+
+# take a look at the output
+comb %>% mutate_if(is.numeric, round, 4) %>%
+  print()
+
+# now merge into dataframe to see the daily return for the next day
+comb2 <- left_join(dates,baba.returns, by = "date")
+
+# didnt work try again
+print(comb2)
+
+# get the NA and add a day to them
+dates <- comb2 %>%
+  filter(returns %in% NA) %>%
+  select(date) %>%
+  mutate(date = date + days (1))
+
+# join
+comb3 <- left_join(dates,baba.returns, by = "date")
+
+# take a look
+comb3 %>% mutate_if(is.numeric, round, 4) %>%
+  print()
+
+merged <- full_join(comb, comb3)
+
+merged %>% mutate_if(is.numeric, round, 4) %>%
+  print()
+
+temp <- merged %>%
+  rename(next.day.return = returns) %>%
+  arrange(desc(date)) %>%
+  select(next.day.return)
+temp %>% mutate_if(is.numeric, round, 4) %>%
+  print()
+
+t2 <- df %>%
+  filter(returns > 0) %>%
+  filter(Spread < -1) %>%
+  arrange(-desc(Spread))
+t2 %>% mutate_if(is.numeric, round, 4) %>%
+  print()
+
+performance2 <- data.frame(temp,t2) %>%
+  select(date, Spread, same.day.return = returns, next.day.return)
+
 ```
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+performance2 %>% mutate_if(is.numeric, round, 4) %>%
+  print()
+
+```
+
+Looking at the return charts again for the next day.
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+
+p1 <- performance2 %>%
+  filter(Spread > -20) %>%
+  ggplot(aes(-Spread, next.day.return*100)) +
+  geom_point() +
+  geom_hline(yintercept = 0.976, color = "red") +
+  stat_smooth(method=lm) +  
+  labs(title = "Next Day Return (Positive)",
+       subtitle = "With Positive Same Day Return",
+       y = "Next Day % Return", x="Negative Spread") +
+  ylim(-4,7) +
+  xlim(1,4)
+
+p2 <- performance %>%
+    filter(Spread > -20) %>%
+  ggplot(aes(-Spread, next.day.return*100)) +
+  geom_point() +
+  geom_hline(yintercept = 0.264, color = "red") +
+  stat_smooth(method=lm) +  
+  labs(title = "Next Day Return (Negative)",
+       subtitle = "With Negative Same Day Return",
+       y = "Next Day % Return", x="Negative Spread") +
+  ylim(-4,7) +
+  xlim(1,4)
+
+grid.arrange(p2,p1, ncol = 2)
+
+```
+Either return
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+
+all <- full_join(performance, performance2)
+
+all <- all %>%
+  mutate(next.day.return = next.day.return*100)
+
+all %>%
+  filter(Spread > -20) %>%
+  ggplot(aes(-Spread,next.day.return)) +
+    geom_point() +
+    geom_hline(yintercept = 0.635, color = "red") +
+    stat_smooth(method=lm) +  
+    labs(
+       title = "Combined Next Day Returns to Spread",
+       subtitle = "With Both Positive and Negative Same Day Returns",
+       y = "Next Day % Return", 
+       x="Negative Spread") +
+    ylim(-4,7) +
+    xlim(1,4)
+  
+
+
+```
+
+### Negative Same Day Return
+All of the following values are in Percentage.
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+
+performance <- performance %>%
+  filter(Spread > -20) %>%
+  mutate(next.day.return = next.day.return*100)
+performance %>%
+  summarise(mean_next_day_return = mean(next.day.return)) %>%
+  print()
+
+```
+
 Summary
 ```{r, echo=FALSE, warning=FALSE, message = FALSE}
 summary(performance$next.day.return)
@@ -636,13 +918,54 @@ Minimum
 min(performance$next.day.return)
 ```
 
+### Positive Same Day Return 
+Percentage
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+performance2 <- performance2 %>%
+  mutate(next.day.return = next.day.return*100)
+performance2 %>%
+  summarise(mean_next_day_return = mean(next.day.return)) %>%
+  print()
+```
+
+Summary
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+summary(performance2$next.day.return)
+```
+Maximum
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+max(performance2$next.day.return)
+```
+Minimum
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+min(performance2$next.day.return)
+```
+
+### Combined (Positive/Negative) Same Day Return 
+Percentage
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+
+all %>%
+  summarise(mean_next_day_return = mean(next.day.return)) %>%
+  print()
+```
+
+Summary
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+summary(all$next.day.return)
+```
+Maximum
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+max(all$next.day.return)
+```
+Minimum
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+min(all$next.day.return)
+```
+
 ## Conclusion
-Based on these summary statistics it appears that using the occurance of a negative spread on a negative return date as a transaction point and seeking a return the next day is not an effective strategy.  As shown in the data above, by purchasing on these large negative spread days and selling at the close the following day the average retrun in 0.25%.
+Looking at the summary statistics we can see that for Alibaba on days where it's DV spread to China Tech (Sum) is over 1 billion and the same day return is positive, the average next day return is 0.97%.  With the same parameters, on days where the same day return is negative the average next day return is 0.26%.  The Ant IPO occurrence with a spread value of billion has been excluded in the summary statistics.
+
+Based on this data, if one were to employ the strategy for positive return days they would do the following.  Wait for a negative spread occurrence greater than 1 to occur on a date that has a positive return.  To execute, this will require intraday volume and price data as close to the closing price as possible.  When an occurrence is observed, the purchase will be made as close to closing price as possible on that day.  Then the stock will be held until as close as possible the following day to be sold.
 
 Thank you for taking the time to read my report.
-
-
-
-
-
-
