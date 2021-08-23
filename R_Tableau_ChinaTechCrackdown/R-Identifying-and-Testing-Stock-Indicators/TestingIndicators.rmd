@@ -370,7 +370,7 @@ c1 <- slc %>%
   geom_line() +
   geom_hline(yintercept = 0, color = "red", size =1) +
   geom_area(alpha = 0.2) +
-  labs(title = "DDV Spread",
+  labs(title = "DV Spread",
        subtitle = "(Sum) Index Less Alibaba",
        y = "USD (Billions)", x="") +
   theme_tq()
@@ -414,7 +414,7 @@ slc %>%
   theme_tq() +
   scale_y_continuous(sec.axis = dup_axis())
 
-ddv <- slc
+DV <- slc
 
 ```
 
